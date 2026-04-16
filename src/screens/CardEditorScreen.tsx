@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Alert,
   Image,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -47,7 +46,7 @@ export default function CardEditorScreen({ route, navigation }: Props) {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Title required', 'Please enter a card title.');
+      window.alert('Please enter a card title.');
       return;
     }
 
@@ -79,19 +78,12 @@ export default function CardEditorScreen({ route, navigation }: Props) {
     navigation.goBack();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!cardId) return;
-    Alert.alert('Delete Card', 'This will remove the card from all decks.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteCard(cardId);
-          navigation.goBack();
-        },
-      },
-    ]);
+    const confirmed = window.confirm('Delete this card from all decks?');
+    if (!confirmed) return;
+    await deleteCard(cardId);
+    navigation.goBack();
   };
 
   const addTextBlock = () => {

@@ -6,7 +6,6 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -132,18 +131,11 @@ export default function GoalsScreen({ navigation }: Props) {
     setShowCreate(false);
   };
 
-  const handleDelete = (goal: Goal) => {
-    Alert.alert('Delete Goal', `Delete "${goal.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteGoal(goal.id);
-          setGoals(goals.filter((g) => g.id !== goal.id));
-        },
-      },
-    ]);
+  const handleDelete = async (goal: Goal) => {
+    const confirmed = window.confirm(`Delete "${goal.name}"?`);
+    if (!confirmed) return;
+    await deleteGoal(goal.id);
+    setGoals(goals.filter((g) => g.id !== goal.id));
   };
 
   const toggleCard = (cardId: string) => {

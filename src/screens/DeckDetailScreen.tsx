@@ -6,7 +6,6 @@ import {
   FlatList,
   Pressable,
   Switch,
-  Alert,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
@@ -155,18 +154,11 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     navigation.navigate('Play', { deckId: deck.id, date: today });
   };
 
-  const handleDelete = () => {
-    Alert.alert('Delete Deck', `Delete "${deck?.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteDeck(deckId);
-          navigation.goBack();
-        },
-      },
-    ]);
+  const handleDelete = async () => {
+    const confirmed = window.confirm(`Delete "${deck?.name}"?`);
+    if (!confirmed) return;
+    await deleteDeck(deckId);
+    navigation.goBack();
   };
 
   const getStatusIcon = (cardId: string) => {

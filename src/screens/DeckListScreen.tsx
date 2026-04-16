@@ -14,8 +14,14 @@ import type { Deck, DailyRun } from '../data/types';
 import {
   getAllDecks,
   getAllDailyRuns,
+  getDailyRun,
+  saveDailyRun,
   todayString,
 } from '../data/storage';
+import {
+  DECK_TEMPLATES,
+  createDeckFromTemplate,
+} from '../data/seedData';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeckList'>;
 
@@ -45,6 +51,70 @@ export default function DeckListScreen({ navigation }: Props) {
     ).length;
     return { status: run.status, done, total: run.liveCardStates.length };
   };
+
+  // Tap deck → go straight to Play (create run if needed)
+  const playDeck = async (deck: Deck) => {
+    if (deck.cardRefs.length === 0) {
+      // No cards — go to detail instead
+      navigation.navigate('DeckDetail', { deckId: deck.id });
+      return;
+    }
+
+    let run = await getDailyRun(deck.id, today);
+    if (run?.status === 'complete') {
+      // Already completed today — go to detail
+      navigation.navigate('DeckDetail', { deckId: deck.id });
+      return;
+    }
+
+    if (!run) {
+      // Create new run
+      let orderedIds = deck.cardRefs
+        .sort((a, b) => a.positionInDeck - b.positionInDeck)
+        .map((r) => r.cardId);
+
+      if (deck.orderMode === 'random') {
+        for (let i = orderedIds.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [orderedIds[i], orderedIds[j]] = [orderedIds[j], orderedIds[i]];
+        }
+      }
+
+      run = {
+        date: today,
+        deckId: deck.id,
+        liveCardStates: orderedIds.map((cardId, i) => ({
+          cardId,
+          status: 'pending' as const,
+          position: i,
+        })),
+        status: 'in-progress',
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      await saveDailyRun(run);
+    } else if (run.status === 'paused') {
+      run.status = 'in-progress';
+      run.updatedAt = Date.now();
+      await saveDailyRun(run);
+    }
+
+    navigation.navigate('Play', { deckId: deck.id, date: today });
+  };
+
+  const addTemplate = async (tmplName: string) => {
+    const tmpl = DECK_TEMPLATES.find((t) => t.name === tmplName);
+    if (!tmpl) return;
+    const deck = await createDeckFromTemplate(tmpl);
+    const allDecks = await getAllDecks();
+    setDecks(allDecks);
+  };
+
+  // Which templates haven't been added yet (by name match)
+  const existingNames = new Set(decks.map((d) => d.name));
+  const availableTemplates = DECK_TEMPLATES.filter(
+    (t) => !existingNames.has(t.name)
+  );
 
   if (loading) {
     return (
@@ -77,7 +147,8 @@ export default function DeckListScreen({ navigation }: Props) {
           return (
             <Pressable
               style={styles.row}
-              onPress={() =>
+              onPress={() => playDeck(deck)}
+              onLongPress={() =>
                 navigation.navigate('DeckDetail', { deckId: deck.id })
               }
             >
@@ -86,25 +157,52 @@ export default function DeckListScreen({ navigation }: Props) {
                 <Text style={styles.deckMeta}>
                   {deck.cardRefs.length} cards{' '}
                   {deck.orderMode === 'random' ? '\uD83D\uDD00' : '\u2630'}
+                  {'  '}
+                  <Text style={styles.editHint}>hold to edit</Text>
                 </Text>
               </View>
               <View style={styles.rowRight}>
                 {runInfo && runInfo.status !== 'complete' && (
                   <Text style={styles.inProgress}>
-                    {runInfo.done} of {runInfo.total}
+                    {runInfo.done}/{runInfo.total}
                   </Text>
                 )}
                 {runInfo?.status === 'complete' && (
                   <Text style={styles.complete}>{'\u2713'}</Text>
                 )}
-                <Text style={styles.chevron}>{'\u203A'}</Text>
               </View>
             </Pressable>
           );
         }}
+        ListFooterComponent={
+          <>
+            {/* Template decks available to add */}
+            {availableTemplates.length > 0 && (
+              <View style={styles.templateSection}>
+                <Text style={styles.templateHeading}>Add a template</Text>
+                {availableTemplates.map((tmpl) => (
+                  <Pressable
+                    key={tmpl.name}
+                    style={styles.templateRow}
+                    onPress={() => addTemplate(tmpl.name)}
+                  >
+                    <View style={styles.rowLeft}>
+                      <Text style={styles.templateName}>{tmpl.name}</Text>
+                      <Text style={styles.templateMeta}>
+                        {tmpl.cards.length} cards {'\u2022'}{' '}
+                        {tmpl.orderMode === 'random' ? 'Random' : 'Fixed'}
+                      </Text>
+                    </View>
+                    <Text style={styles.addBtn}>+ Add</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </>
+        }
         ListEmptyComponent={
           <Text style={styles.empty}>
-            No decks yet. Tap + to create one.
+            No decks yet. Add a template or tap + to create one.
           </Text>
         }
       />
@@ -142,7 +240,7 @@ const styles = StyleSheet.create({
   },
   topActions: { flexDirection: 'row', gap: 16, paddingBottom: 4 },
   topLink: { fontSize: 16, color: '#4A90D9', fontWeight: '500' },
-  list: { paddingHorizontal: 16 },
+  list: { paddingHorizontal: 16, paddingBottom: 100 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -155,6 +253,7 @@ const styles = StyleSheet.create({
   rowLeft: { flex: 1 },
   deckName: { fontSize: 17, fontWeight: '600', color: '#222' },
   deckMeta: { fontSize: 13, color: '#888', marginTop: 2 },
+  editHint: { fontSize: 11, color: '#bbb', fontStyle: 'italic' },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   inProgress: {
     fontSize: 13,
@@ -162,12 +261,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   complete: { fontSize: 18, color: '#4CAF50', fontWeight: '700' },
-  chevron: { fontSize: 22, color: '#ccc' },
   empty: {
     textAlign: 'center',
     color: '#999',
     fontSize: 16,
-    marginTop: 60,
+    marginTop: 40,
+  },
+  // Template section
+  templateSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e0db',
+  },
+  templateHeading: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  templateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e5e0db',
+    borderStyle: 'dashed',
+  },
+  templateName: { fontSize: 16, fontWeight: '600', color: '#555' },
+  templateMeta: { fontSize: 12, color: '#aaa', marginTop: 2 },
+  addBtn: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4A90D9',
   },
   fab: {
     position: 'absolute',
