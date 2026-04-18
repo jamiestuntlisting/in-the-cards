@@ -25,6 +25,7 @@ import {
   getDailyRun,
   getAllDailyRuns,
   saveDailyRun,
+  deleteDeck,
   addLog,
   deleteLog,
   todayString,
@@ -222,6 +223,14 @@ export default function PlayScreen({ route, navigation }: Props) {
         logId,
       });
 
+      // Helper: auto-remove the tutorial deck once the user finishes it.
+      // The user has "graduated" — they don't need it cluttering their list.
+      const maybeAutoDeleteTutorial = async (isDone: boolean) => {
+        if (isDone && deckId === 'deck-tutorial') {
+          await deleteDeck(deckId);
+        }
+      };
+
       switch (direction) {
         case 'right': {
           setStats((s) => ({ ...s, completed: s.completed + 1 }));
@@ -237,6 +246,7 @@ export default function PlayScreen({ route, navigation }: Props) {
           updatedRun.updatedAt = Date.now();
           setRun(updatedRun);
           await saveDailyRun(updatedRun);
+          await maybeAutoDeleteTutorial(isDone);
           setCurrentIndex(newIdx);
           if (!isDone) triggerFlipReveal();
           break;
@@ -254,6 +264,7 @@ export default function PlayScreen({ route, navigation }: Props) {
           updatedRun.updatedAt = Date.now();
           setRun(updatedRun);
           await saveDailyRun(updatedRun);
+          await maybeAutoDeleteTutorial(isDone);
           setCurrentIndex(newIdx);
           if (!isDone) triggerFlipReveal();
           break;
