@@ -28,6 +28,7 @@ import {
   cancelTrigger,
 } from '../data/notifications';
 import TimeInput from '../components/TimeInput';
+import ScreenContainer from '../components/ScreenContainer';
 import {
   color,
   font,
@@ -223,7 +224,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     deck.orderMode === 'random' ? RandomOrderIcon : FixedOrderIcon;
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.header}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -304,10 +305,13 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {/* Play CTA */}
-      <Pressable style={styles.playButton} onPress={startOrResume}>
-        <PlayIcon size={20} color="#fff" strokeWidth={2.2} />
-        <Text style={styles.playText}>{runLabel}</Text>
+      {/* Add card — now the primary action at top */}
+      <Pressable
+        style={styles.addCardTop}
+        onPress={() => navigation.navigate('CardPicker', { deckId: deck.id })}
+      >
+        <PlusIcon size={20} color="#fff" strokeWidth={2.2} />
+        <Text style={styles.addCardTopText}>Add Card</Text>
       </Pressable>
 
       {/* Card list */}
@@ -383,17 +387,14 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         )}
       />
 
-      {/* Add card */}
-      <Pressable
-        style={styles.addCard}
-        onPress={() =>
-          navigation.navigate('CardPicker', { deckId: deck.id })
-        }
-      >
-        <PlusIcon size={16} color={color.link} strokeWidth={2.2} />
-        <Text style={styles.addCardText}>Add Card</Text>
-      </Pressable>
-    </View>
+      {/* Resume / Play — now the secondary action at the bottom */}
+      {cards.length > 0 && (
+        <Pressable style={styles.resumeBottom} onPress={startOrResume}>
+          <PlayIcon size={18} color="#fff" strokeWidth={2.2} />
+          <Text style={styles.resumeBottomText}>{runLabel}</Text>
+        </Pressable>
+      )}
+    </ScreenContainer>
   );
 }
 
@@ -455,7 +456,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.ui,
     color: color.fg2,
   },
-  playButton: {
+  addCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -466,7 +467,25 @@ const styles = StyleSheet.create({
     borderRadius: radius.m,
     paddingVertical: 14,
   },
-  playText: {
+  addCardTopText: {
+    fontFamily: font.text,
+    color: '#fff',
+    fontSize: fontSize.bodyL,
+    fontWeight: fontWeight.semibold,
+  },
+  resumeBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    marginHorizontal: space[5],
+    marginTop: space[3],
+    marginBottom: space[5],
+    backgroundColor: color.fg1,
+    borderRadius: radius.m,
+    paddingVertical: 14,
+  },
+  resumeBottomText: {
     fontFamily: font.text,
     color: '#fff',
     fontSize: fontSize.bodyL,

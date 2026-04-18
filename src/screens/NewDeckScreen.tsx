@@ -27,6 +27,7 @@ import {
   suit,
 } from '../design/tokens';
 import { FixedOrderIcon, RandomOrderIcon } from '../design/icons';
+import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NewDeck'>;
 
@@ -53,7 +54,7 @@ export default function NewDeckScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()}>
           <Text style={styles.cancel}>Cancel</Text>
@@ -128,7 +129,7 @@ export default function NewDeckScreen({ navigation }: Props) {
           </Pressable>
         </View>
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 

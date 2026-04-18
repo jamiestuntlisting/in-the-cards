@@ -35,6 +35,8 @@ import {
   SkipIcon,
   PlusIcon,
 } from '../design/icons';
+import CardPreview from '../components/CardPreview';
+import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardEditor'>;
 
@@ -128,7 +130,7 @@ export default function CardEditorScreen({ route, navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()}>
           <Text style={styles.cancel}>Cancel</Text>
@@ -146,6 +148,19 @@ export default function CardEditorScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Live preview — WYSIWYG */}
+        <View style={styles.previewWrap}>
+          <CardPreview
+            title={title}
+            blocks={blocks}
+            timerSeconds={
+              timerSeconds ? parseInt(timerSeconds, 10) || undefined : undefined
+            }
+            link={link.trim() || undefined}
+          />
+          <Text style={styles.previewLabel}>Live preview</Text>
+        </View>
+
         <Text style={styles.label}>Title</Text>
         <TextInput
           style={styles.titleInput}
@@ -251,7 +266,7 @@ export default function CardEditorScreen({ route, navigation }: Props) {
           </Pressable>
         )}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 
@@ -288,6 +303,20 @@ const styles = StyleSheet.create({
   },
   scroll: { flex: 1 },
   scrollContent: { padding: space[5], paddingBottom: space[9] },
+  previewWrap: {
+    alignItems: 'center',
+    marginTop: space[3],
+    marginBottom: space[2],
+  },
+  previewLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg4,
+    textTransform: 'uppercase',
+    letterSpacing: letterSpacing.label,
+    marginTop: space[2] + 2,
+  },
   label: {
     fontFamily: font.text,
     fontSize: fontSize.label,

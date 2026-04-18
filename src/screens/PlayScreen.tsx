@@ -51,6 +51,7 @@ import {
   UndoIcon,
   PlayIcon,
 } from '../design/icons';
+import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Play'>;
 
@@ -410,7 +411,7 @@ export default function PlayScreen({ route, navigation }: Props) {
   // Paused
   if (paused) {
     return (
-      <View style={styles.container}>
+      <ScreenContainer style={styles.container}>
         <View style={styles.pausedContainer}>
           <View style={styles.pausedIconWrap}>
             <PauseIcon size={48} color={color.fg2} strokeWidth={1.5} />
@@ -430,14 +431,14 @@ export default function PlayScreen({ route, navigation }: Props) {
             <Text style={styles.secondaryText}>Back to Deck</Text>
           </Pressable>
         </View>
-      </View>
+      </ScreenContainer>
     );
   }
 
   // Complete
   if (isDeckComplete) {
     return (
-      <View style={styles.container}>
+      <ScreenContainer style={styles.container}>
         <DeckComplete
           stats={{ total: totalSwiped.current, ...stats }}
           nextDeckName={nextDeck?.name}
@@ -485,12 +486,12 @@ export default function PlayScreen({ route, navigation }: Props) {
           }
           onBackToList={() => navigation.navigate('DeckList')}
         />
-      </View>
+      </ScreenContainer>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer style={styles.container}>
       <View style={styles.header}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -533,7 +534,7 @@ export default function PlayScreen({ route, navigation }: Props) {
           ? 'Long-press to pause  \u2022  arrows to swipe  \u2022  \u2318Z to undo'
           : 'Long-press to pause deck'}
       </Text>
-    </View>
+    </ScreenContainer>
   );
 }
 

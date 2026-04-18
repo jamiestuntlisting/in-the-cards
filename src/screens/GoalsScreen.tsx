@@ -36,6 +36,7 @@ import {
   CheckIcon,
   PlusIcon,
 } from '../design/icons';
+import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Goals'>;
 
@@ -160,7 +161,7 @@ export default function GoalsScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.headerRow}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -297,7 +298,7 @@ export default function GoalsScreen({ navigation }: Props) {
           </>
         }
       />
-    </View>
+    </ScreenContainer>
   );
 }
 

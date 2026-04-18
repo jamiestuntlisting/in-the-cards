@@ -45,6 +45,7 @@ import {
   SpadeIcon,
   HeartIcon,
 } from '../design/icons';
+import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Stats'>;
 
@@ -139,7 +140,7 @@ export default function StatsScreen({ navigation }: Props) {
     timeOfDay.lateNight;
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.headerRow}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -346,7 +347,7 @@ export default function StatsScreen({ navigation }: Props) {
           <Text style={styles.empty}>No activity in this period yet.</Text>
         )}
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 

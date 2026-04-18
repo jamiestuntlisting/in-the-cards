@@ -22,6 +22,7 @@ import {
   DECK_TEMPLATES,
   createDeckFromTemplate,
 } from '../data/seedData';
+import ScreenContainer from '../components/ScreenContainer';
 import {
   color,
   font,
@@ -138,7 +139,7 @@ export default function DeckListScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.topBar}>
         <Text style={styles.heading}>Your Decks</Text>
         <View style={styles.topActions}>
@@ -242,7 +243,7 @@ export default function DeckListScreen({ navigation }: Props) {
       >
         <PlusIcon size={28} color="#fff" strokeWidth={2.2} />
       </Pressable>
-    </View>
+    </ScreenContainer>
   );
 }
 

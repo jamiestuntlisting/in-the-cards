@@ -30,6 +30,7 @@ import {
   suit,
 } from '../design/tokens';
 import { ChevronLeftIcon } from '../design/icons';
+import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -61,7 +62,7 @@ export default function SettingsScreen({ navigation }: Props) {
   if (!settings) return null;
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.headerRow}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -133,7 +134,7 @@ export default function SettingsScreen({ navigation }: Props) {
           A card-based daily routine app.
         </Text>
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 

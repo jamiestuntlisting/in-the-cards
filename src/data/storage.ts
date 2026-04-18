@@ -1,26 +1,80 @@
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Card, Deck, DailyRun, CompletionLog, Goal, Settings } from './types';
+import type {
+  Card,
+  Deck,
+  DailyRun,
+  CompletionLog,
+  Goal,
+  Settings,
+} from './types';
 
 // ─── Storage Keys ───
 const KEYS = {
-  CARDS: 'cards',
-  DECKS: 'decks',
-  DAILY_RUNS: 'daily_runs',
-  COMPLETION_LOGS: 'completion_logs',
-  GOALS: 'goals',
-  SETTINGS: 'settings',
-  SEEDED: 'tutorial_seeded',
+  CARDS: 'itc:cards',
+  DECKS: 'itc:decks',
+  DAILY_RUNS: 'itc:daily_runs',
+  COMPLETION_LOGS: 'itc:completion_logs',
+  GOALS: 'itc:goals',
+  SETTINGS: 'itc:settings',
+  SEEDED: 'itc:tutorial_seeded',
+  TUTORIAL_DELETED: 'itc:tutorial_deleted',
 } as const;
 
-// ─── Generic helpers ───
+/**
+ * Direct localStorage on web (synchronous, reliable), AsyncStorage on native.
+ * This works around any async init weirdness in AsyncStorage on web.
+ */
+async function getItem(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    try {
+      return window.localStorage.getItem(key);
+    } catch (e) {
+      console.warn('localStorage.getItem failed', key, e);
+      return null;
+    }
+  }
+  return AsyncStorage.getItem(key);
+}
+
+async function setItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      window.localStorage.setItem(key, value);
+      return;
+    } catch (e) {
+      console.warn('localStorage.setItem failed', key, e);
+      return;
+    }
+  }
+  await AsyncStorage.setItem(key, value);
+}
+
+async function removeItem(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      window.localStorage.removeItem(key);
+      return;
+    } catch (e) {
+      return;
+    }
+  }
+  await AsyncStorage.removeItem(key);
+}
 
 async function getJSON<T>(key: string): Promise<T | null> {
-  const raw = await AsyncStorage.getItem(key);
-  return raw ? JSON.parse(raw) : null;
+  const raw = await getItem(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch (e) {
+    console.warn('Failed to parse JSON for', key, e);
+    return null;
+  }
 }
 
 async function setJSON<T>(key: string, value: T): Promise<void> {
-  await AsyncStorage.setItem(key, JSON.stringify(value));
+  await setItem(key, JSON.stringify(value));
 }
 
 // ─── Cards ───
@@ -48,13 +102,11 @@ export async function deleteCard(id: string): Promise<void> {
     KEYS.CARDS,
     cards.filter((c) => c.id !== id)
   );
-  // Also remove from all decks
   const decks = await getAllDecks();
   for (const deck of decks) {
     const before = deck.cardRefs.length;
     deck.cardRefs = deck.cardRefs.filter((r) => r.cardId !== id);
     if (deck.cardRefs.length !== before) {
-      // Re-index positions
       deck.cardRefs.forEach((r, i) => (r.positionInDeck = i));
       await saveDeck(deck);
     }
@@ -86,6 +138,10 @@ export async function deleteDeck(id: string): Promise<void> {
     KEYS.DECKS,
     decks.filter((d) => d.id !== id)
   );
+  // If this is the tutorial deck, remember the user deleted it so we don't re-seed
+  if (id === 'deck-tutorial') {
+    await markTutorialDeleted();
+  }
   // Clean up daily runs for this deck
   const runs = await getAllDailyRuns();
   await setJSON(
@@ -207,25 +263,45 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 export async function getSettings(): Promise<Settings> {
-  return (await getJSON<Settings>(KEYS.SETTINGS)) ?? { ...DEFAULT_SETTINGS };
+  const stored = await getJSON<Settings>(KEYS.SETTINGS);
+  if (!stored) return { ...DEFAULT_SETTINGS };
+  // Merge stored + defaults so new keys added later don't break old saves
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    // Always merge stats display — stored value wins, but empty array still allowed
+    preferredStatsDisplay:
+      Array.isArray(stored.preferredStatsDisplay)
+        ? stored.preferredStatsDisplay
+        : DEFAULT_SETTINGS.preferredStatsDisplay,
+  };
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await setJSON(KEYS.SETTINGS, settings);
 }
 
-// ─── Seed check ───
+// ─── Seed tracking ───
 
 export async function hasBeenSeeded(): Promise<boolean> {
-  const val = await AsyncStorage.getItem(KEYS.SEEDED);
+  const val = await getItem(KEYS.SEEDED);
   return val === 'true';
 }
 
 export async function markSeeded(): Promise<void> {
-  await AsyncStorage.setItem(KEYS.SEEDED, 'true');
+  await setItem(KEYS.SEEDED, 'true');
 }
 
-// ─── Date helpers ───
+export async function hasUserDeletedTutorial(): Promise<boolean> {
+  const val = await getItem(KEYS.TUTORIAL_DELETED);
+  return val === 'true';
+}
+
+export async function markTutorialDeleted(): Promise<void> {
+  await setItem(KEYS.TUTORIAL_DELETED, 'true');
+}
+
+// ─── Helpers ───
 
 export function todayString(): string {
   return new Date().toISOString().slice(0, 10);
@@ -233,4 +309,23 @@ export function todayString(): string {
 
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * Dump all stored state as JSON — useful for debugging or export.
+ */
+export async function exportAllData(): Promise<string> {
+  const [cards, decks, runs, logs, goals, settings] = await Promise.all([
+    getAllCards(),
+    getAllDecks(),
+    getAllDailyRuns(),
+    getAllLogs(),
+    getAllGoals(),
+    getSettings(),
+  ]);
+  return JSON.stringify(
+    { cards, decks, runs, logs, goals, settings },
+    null,
+    2
+  );
 }

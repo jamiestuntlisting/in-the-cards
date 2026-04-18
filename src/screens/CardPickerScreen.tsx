@@ -4,14 +4,26 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  FlatList,
+  ScrollView,
   Pressable,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import type { Card, Deck } from '../data/types';
-import { getAllCards, getDeck, saveDeck } from '../data/storage';
+import {
+  getAllCards,
+  getDeck,
+  saveDeck,
+  saveCard,
+  generateId,
+} from '../data/storage';
+import {
+  STANDARD_CARDS,
+  isTutorialCardId,
+  type StandardCardTemplate,
+} from '../data/seedData';
+import ScreenContainer from '../components/ScreenContainer';
 import {
   color,
   font,
@@ -43,14 +55,36 @@ export default function CardPickerScreen({ route, navigation }: Props) {
   );
 
   const inDeck = new Set(deck?.cardRefs.map((r) => r.cardId) ?? []);
-  const available = allCards.filter(
-    (c) =>
-      !inDeck.has(c.id) &&
-      (query.trim() === '' ||
-        c.title.toLowerCase().includes(query.toLowerCase()))
+
+  // User library — all cards minus tutorial cards and cards already in this deck
+  const userCards = allCards.filter(
+    (c) => !inDeck.has(c.id) && !isTutorialCardId(c.id)
   );
 
-  const addCard = async (card: Card) => {
+  // Filter by search query
+  const matchesQuery = (title: string) =>
+    query.trim() === '' || title.toLowerCase().includes(query.toLowerCase());
+
+  const filteredUserCards = userCards.filter((c) => matchesQuery(c.title));
+
+  // Standard cards — hide if a card with the same title already exists in user library or this deck
+  const existingTitles = new Set(
+    allCards.map((c) => c.title.toLowerCase())
+  );
+  const inDeckTitles = new Set(
+    (deck?.cardRefs ?? []).map((ref) => {
+      const c = allCards.find((x) => x.id === ref.cardId);
+      return c?.title.toLowerCase() ?? '';
+    })
+  );
+  const filteredStandardCards = STANDARD_CARDS.filter(
+    (t) =>
+      !existingTitles.has(t.title.toLowerCase()) &&
+      !inDeckTitles.has(t.title.toLowerCase()) &&
+      matchesQuery(t.title)
+  );
+
+  const addExistingCard = async (card: Card) => {
     if (!deck) return;
     const updated: Deck = {
       ...deck,
@@ -63,8 +97,36 @@ export default function CardPickerScreen({ route, navigation }: Props) {
     navigation.goBack();
   };
 
+  const addStandardCard = async (tmpl: StandardCardTemplate) => {
+    if (!deck) return;
+    // Materialize a real card in the library, then add to deck
+    const newCard: Card = {
+      id: generateId(),
+      title: tmpl.title,
+      content: [],
+      timer: tmpl.timer ? { durationSeconds: tmpl.timer } : undefined,
+      createdAt: Date.now(),
+    };
+    await saveCard(newCard);
+    const updated: Deck = {
+      ...deck,
+      cardRefs: [
+        ...deck.cardRefs,
+        { cardId: newCard.id, positionInDeck: deck.cardRefs.length },
+      ],
+    };
+    await saveDeck(updated);
+    navigation.goBack();
+  };
+
+  const formatTimerLabel = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds % 60 === 0) return `${seconds / 60}m`;
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  };
+
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()}>
           <Text style={styles.cancel}>Cancel</Text>
@@ -87,51 +149,96 @@ export default function CardPickerScreen({ route, navigation }: Props) {
         style={styles.search}
         value={query}
         onChangeText={setQuery}
-        placeholder="Search library..."
+        placeholder="Search..."
         placeholderTextColor={color.fg4}
       />
 
-      <Text style={styles.sectionTitle}>
-        From library ({available.length})
-      </Text>
-
-      <FlatList
-        data={available}
-        keyExtractor={(c) => c.id}
+      <ScrollView
         contentContainerStyle={styles.list}
-        renderItem={({ item: card }) => (
-          <Pressable style={styles.cardRow} onPress={() => addCard(card)}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {card.title}
-              </Text>
-              {card.content.length > 0 &&
-                card.content[0].type === 'text' && (
-                  <Text style={styles.cardPreview} numberOfLines={1}>
-                    {card.content[0].value}
+        keyboardShouldPersistTaps="handled"
+      >
+        {filteredUserCards.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>
+              Your library ({filteredUserCards.length})
+            </Text>
+            {filteredUserCards.map((card) => (
+              <Pressable
+                key={card.id}
+                style={styles.cardRow}
+                onPress={() => addExistingCard(card)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {card.title}
                   </Text>
+                  {card.content.length > 0 &&
+                    card.content[0].type === 'text' && (
+                      <Text style={styles.cardPreview} numberOfLines={1}>
+                        {card.content[0].value}
+                      </Text>
+                    )}
+                </View>
+                {card.timer && (
+                  <View style={styles.timerBadge}>
+                    <TimerIcon
+                      size={11}
+                      color={suit.club}
+                      strokeWidth={2.2}
+                    />
+                    <Text style={styles.timerBadgeText}>
+                      {formatTimerLabel(card.timer.durationSeconds)}
+                    </Text>
+                  </View>
                 )}
-            </View>
-            {card.timer && (
-              <View style={styles.timerBadge}>
-                <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
-                <Text style={styles.timerBadgeText}>
-                  {card.timer.durationSeconds}s
-                </Text>
-              </View>
-            )}
-            <PlusIcon size={18} color={color.link} strokeWidth={2.2} />
-          </Pressable>
+                <PlusIcon size={18} color={color.link} strokeWidth={2.2} />
+              </Pressable>
+            ))}
+          </>
         )}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            {query
-              ? 'No matching cards in library.'
-              : 'No cards in library yet. Create a new one above.'}
-          </Text>
-        }
-      />
-    </View>
+
+        {filteredStandardCards.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>
+              Standard cards
+            </Text>
+            {filteredStandardCards.map((tmpl, i) => (
+              <Pressable
+                key={`std-${i}`}
+                style={[styles.cardRow, styles.standardRow]}
+                onPress={() => addStandardCard(tmpl)}
+              >
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {tmpl.title}
+                </Text>
+                {tmpl.timer && (
+                  <View style={styles.timerBadge}>
+                    <TimerIcon
+                      size={11}
+                      color={suit.club}
+                      strokeWidth={2.2}
+                    />
+                    <Text style={styles.timerBadgeText}>
+                      {formatTimerLabel(tmpl.timer)}
+                    </Text>
+                  </View>
+                )}
+                <PlusIcon size={18} color={color.link} strokeWidth={2.2} />
+              </Pressable>
+            ))}
+          </>
+        )}
+
+        {filteredUserCards.length === 0 &&
+          filteredStandardCards.length === 0 && (
+            <Text style={styles.empty}>
+              {query
+                ? 'No matches. Create a new card above.'
+                : 'No cards available. Create one above.'}
+            </Text>
+          )}
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
@@ -212,7 +319,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: color.cardStroke,
   },
+  standardRow: {
+    backgroundColor: color.bgSurface,
+    borderStyle: 'dashed',
+    borderColor: color.hairline,
+  },
   cardTitle: {
+    flex: 1,
     fontFamily: font.text,
     fontSize: fontSize.ui,
     color: color.fg1,

@@ -4,6 +4,7 @@ import {
   saveDeck,
   hasBeenSeeded,
   markSeeded,
+  hasUserDeletedTutorial,
   generateId,
 } from './storage';
 
@@ -178,10 +179,54 @@ export async function createDeckFromTemplate(
   return deck;
 }
 
+// ─── Tutorial card ID prefix — used to filter out of library pickers ───
+export const TUTORIAL_CARD_IDS = new Set(TUTORIAL_CARDS.map((c) => c.id));
+
+export function isTutorialCardId(id: string): boolean {
+  return TUTORIAL_CARD_IDS.has(id);
+}
+
+// ─── Standard cards — common activities users might want ───
+// These are NOT persisted — they're offered in the card picker and only
+// saved (with a fresh id) if the user actually adds them to a deck.
+export interface StandardCardTemplate {
+  title: string;
+  timer?: number;
+}
+
+export const STANDARD_CARDS: StandardCardTemplate[] = [
+  { title: 'Drink a glass of water' },
+  { title: 'Go for a walk', timer: 600 },
+  { title: 'Stretch', timer: 180 },
+  { title: 'Go for a run', timer: 1200 },
+  { title: 'Meditate', timer: 300 },
+  { title: 'Read a book', timer: 900 },
+  { title: 'Take deep breaths', timer: 60 },
+  { title: "Write one thing you're grateful for" },
+  { title: 'Do push-ups', timer: 60 },
+  { title: 'Do sit-ups', timer: 60 },
+  { title: 'Eat a piece of fruit' },
+  { title: 'Call a friend' },
+  { title: 'Step outside for fresh air', timer: 120 },
+  { title: 'Journal', timer: 300 },
+  { title: 'Take vitamins' },
+  { title: 'Floss' },
+  { title: 'Make the bed' },
+  { title: 'Tidy one surface' },
+  { title: 'Plan tomorrow' },
+  { title: 'No-screen break', timer: 300 },
+];
+
 // ─── First-launch seed ───
 
 export async function seedIfNeeded(): Promise<void> {
+  // If already seeded OR user explicitly deleted the tutorial, never re-seed.
   if (await hasBeenSeeded()) return;
+  if (await hasUserDeletedTutorial()) {
+    // Still mark seeded so we don't re-check on every launch
+    await markSeeded();
+    return;
+  }
 
   const now = Date.now();
 
