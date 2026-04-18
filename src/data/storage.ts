@@ -140,6 +140,14 @@ export async function getLogsForCard(cardId: string): Promise<CompletionLog[]> {
   return logs.filter((l) => l.cardId === cardId);
 }
 
+export async function deleteLog(logId: string): Promise<void> {
+  const logs = await getAllLogs();
+  await setJSON(
+    KEYS.COMPLETION_LOGS,
+    logs.filter((l) => l.id !== logId)
+  );
+}
+
 // ─── Goals ───
 
 export async function getAllGoals(): Promise<Goal[]> {

@@ -9,14 +9,28 @@ interface DeckCompleteProps {
     deferred: number;
     shuffled: number;
   };
-  onRestart: () => void;
+  nextDeckName?: string;
+  onPlayNext?: () => void;
+  onBackToList: () => void;
 }
 
-export default function DeckComplete({ stats, onRestart }: DeckCompleteProps) {
+export default function DeckComplete({
+  stats,
+  nextDeckName,
+  onPlayNext,
+  onBackToList,
+}: DeckCompleteProps) {
+  const completionPct =
+    stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
   return (
     <View style={styles.container}>
       <Text style={styles.emoji}>&#127183;</Text>
       <Text style={styles.title}>Deck Complete!</Text>
+
+      {/* Big completion number */}
+      <Text style={styles.bigPct}>{completionPct}%</Text>
+      <Text style={styles.bigPctLabel}>completed</Text>
 
       <View style={styles.statsGrid}>
         <StatRow label="Completed" value={stats.completed} color="#4CAF50" />
@@ -25,12 +39,29 @@ export default function DeckComplete({ stats, onRestart }: DeckCompleteProps) {
         <StatRow label="Shuffled" value={stats.shuffled} color="#9C27B0" />
       </View>
 
-      <Text style={styles.totalText}>
-        {stats.total} cards swiped
-      </Text>
+      <Text style={styles.totalText}>{stats.total} cards swiped</Text>
 
-      <Pressable style={styles.restartButton} onPress={onRestart}>
-        <Text style={styles.restartText}>Play Again</Text>
+      {/* Play next deck (keeps user in flow) */}
+      {nextDeckName && onPlayNext && (
+        <Pressable style={styles.primaryButton} onPress={onPlayNext}>
+          <Text style={styles.primaryText}>
+            {'\u25B6'} Play {nextDeckName}
+          </Text>
+        </Pressable>
+      )}
+
+      <Pressable
+        style={[
+          styles.secondaryButton,
+          !nextDeckName && styles.primaryButton,
+        ]}
+        onPress={onBackToList}
+      >
+        <Text
+          style={nextDeckName ? styles.secondaryText : styles.primaryText}
+        >
+          Back to Decks
+        </Text>
       </Pressable>
     </View>
   );
@@ -70,6 +101,17 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#222',
+    marginBottom: 16,
+  },
+  bigPct: {
+    fontSize: 64,
+    fontWeight: '700',
+    color: '#4CAF50',
+    marginBottom: -4,
+  },
+  bigPctLabel: {
+    fontSize: 14,
+    color: '#888',
     marginBottom: 24,
   },
   statsGrid: {
@@ -101,17 +143,32 @@ const styles = StyleSheet.create({
   totalText: {
     fontSize: 14,
     color: '#999',
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  restartButton: {
+  primaryButton: {
     paddingHorizontal: 32,
     paddingVertical: 14,
     backgroundColor: '#4A90D9',
     borderRadius: 24,
+    marginTop: 10,
+    minWidth: 220,
+    alignItems: 'center',
   },
-  restartText: {
+  primaryText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
+  },
+  secondaryButton: {
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    marginTop: 6,
+    minWidth: 220,
+    alignItems: 'center',
+  },
+  secondaryText: {
+    color: '#888',
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

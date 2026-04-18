@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "in-the-cards",
+    "name": "In the Cards",
     "slug": "in-the-cards",
     "version": "1.0.0",
+    "description": "A card-based daily routine app. Swipe through cards each morning — right to complete, left to defer, up to skip, down to shuffle.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -10,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#F5F0EB"
     },
     "ios": {
       "supportsTablet": true
@@ -26,7 +27,13 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "single",
-      "bundler": "metro"
+      "bundler": "metro",
+      "name": "In the Cards",
+      "shortName": "Cards",
+      "display": "standalone",
+      "themeColor": "#4A90D9",
+      "backgroundColor": "#F5F0EB",
+      "lang": "en"
     }
   }
 }

@@ -20,6 +20,7 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef(AppState.currentState);
   const blinkOpacity = useSharedValue(1);
+  const progress = useSharedValue(0);
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -35,7 +36,6 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
         appStateRef.current === 'active' &&
         nextState.match(/inactive|background/)
       ) {
-        // App going to background — pause
         if (running) {
           clearTimer();
           setRunning(false);
@@ -63,10 +63,34 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
     return clearTimer;
   }, [running, clearTimer]);
 
+  // Smooth progress animation (linear to zero when running)
+  useEffect(() => {
+    if (running) {
+      // Animate from current progress to 1 over remaining seconds
+      const currentPct = (durationSeconds - remaining) / durationSeconds;
+      progress.value = currentPct;
+      progress.value = withTiming(1, {
+        duration: remaining * 1000,
+        easing: Easing.linear,
+      });
+    } else if (done) {
+      progress.value = withTiming(1, { duration: 200 });
+    } else {
+      // Stop at current value
+      progress.value = (durationSeconds - remaining) / durationSeconds;
+    }
+  }, [running, done, remaining, durationSeconds, progress]);
+
+  // Reset progress if remaining returns to full (new start)
+  useEffect(() => {
+    if (remaining === durationSeconds && !running && !done) {
+      progress.value = 0;
+    }
+  }, [remaining, durationSeconds, running, done, progress]);
+
   // Blink 5 times on done
   useEffect(() => {
     if (!done) return;
-    // 5 blinks: opacity goes 1 → 0 → 1 five times
     blinkOpacity.value = withSequence(
       ...Array.from({ length: 5 }).flatMap((_, i) => [
         withDelay(
@@ -85,6 +109,10 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
     opacity: blinkOpacity.value,
   }));
 
+  const progressBarStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`,
+  }));
+
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
@@ -93,9 +121,29 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
       : `${sec}s`;
   };
 
+  const reset = () => {
+    clearTimer();
+    setRunning(false);
+    setDone(false);
+    setRemaining(durationSeconds);
+    progress.value = 0;
+  };
+
   return (
     <Animated.View style={[styles.container, blinkStyle]}>
       <Text style={styles.timeText}>{formatTime(remaining)}</Text>
+
+      {/* Progress bar */}
+      <View style={styles.progressTrack}>
+        <Animated.View
+          style={[
+            styles.progressFill,
+            done && styles.progressFillDone,
+            progressBarStyle,
+          ]}
+        />
+      </View>
+
       {!done && !running && (
         <Pressable
           style={styles.startButton}
@@ -119,7 +167,14 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
           <Text style={styles.startText}>Pause</Text>
         </Pressable>
       )}
-      {done && <Text style={styles.doneText}>Time's up!</Text>}
+      {done && (
+        <View style={styles.doneRow}>
+          <Text style={styles.doneText}>Time's up!</Text>
+          <Pressable onPress={reset}>
+            <Text style={styles.resetText}>Reset</Text>
+          </Pressable>
+        </View>
+      )}
     </Animated.View>
   );
 }
@@ -131,6 +186,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: 'rgba(0,0,0,0.04)',
     borderRadius: 12,
+    minWidth: 180,
   },
   timeText: {
     fontSize: 32,
@@ -138,8 +194,24 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     color: '#333',
   },
+  progressTrack: {
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    borderRadius: 2,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4A90D9',
+    borderRadius: 2,
+  },
+  progressFillDone: {
+    backgroundColor: '#4CAF50',
+  },
   startButton: {
-    marginTop: 8,
+    marginTop: 10,
     paddingHorizontal: 24,
     paddingVertical: 10,
     backgroundColor: '#4A90D9',
@@ -153,10 +225,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  doneText: {
+  doneRow: {
     marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  doneText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#4CAF50',
+  },
+  resetText: {
+    fontSize: 14,
     color: '#4A90D9',
+    fontWeight: '500',
   },
 });

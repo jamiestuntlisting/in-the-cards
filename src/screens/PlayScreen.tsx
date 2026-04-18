@@ -17,13 +17,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import type { Card, DailyRun } from '../data/types';
+import type { Card, Deck, DailyRun } from '../data/types';
 import {
   getDeck,
+  getAllDecks,
   getAllCards,
   getDailyRun,
+  getAllDailyRuns,
   saveDailyRun,
   addLog,
+  deleteLog,
   todayString,
   generateId,
 } from '../data/storage';
@@ -49,6 +52,20 @@ export default function PlayScreen({ route, navigation }: Props) {
   });
   const [loading, setLoading] = useState(true);
   const totalSwiped = React.useRef(0);
+
+  // Undo stack: snapshot of state before the most recent swipe
+  type Snapshot = {
+    cards: Card[];
+    currentIndex: number;
+    stats: typeof stats;
+    runLiveStates: DailyRun['liveCardStates'];
+    runStatus: DailyRun['status'];
+    logId: string;
+  };
+  const [undoSnapshot, setUndoSnapshot] = useState<Snapshot | null>(null);
+
+  // Next deck to offer on completion (first incomplete deck other than this one)
+  const [nextDeck, setNextDeck] = useState<Deck | null>(null);
 
   const flipProgress = useSharedValue(1);
   const shuffleJitter = useSharedValue(0);
@@ -88,6 +105,25 @@ export default function PlayScreen({ route, navigation }: Props) {
         else if (state.status === 'skipped') s.skipped++;
       }
       setStats(s);
+
+      // Find next deck to suggest (other deck not yet complete today, with cards)
+      const [allDecks, allRuns] = await Promise.all([
+        getAllDecks(),
+        getAllDailyRuns(),
+      ]);
+      const completedTodayIds = new Set(
+        allRuns
+          .filter((r) => r.date === date && r.status === 'complete')
+          .map((r) => r.deckId)
+      );
+      const candidate = allDecks.find(
+        (d) =>
+          d.id !== deckId &&
+          d.cardRefs.length > 0 &&
+          !completedTodayIds.has(d.id)
+      );
+      setNextDeck(candidate ?? null);
+
       setLoading(false);
     })();
   }, [deckId, date, navigation]);
@@ -148,13 +184,24 @@ export default function PlayScreen({ route, navigation }: Props) {
           : 'shuffled';
 
       // Log the swipe
+      const logId = generateId();
       await addLog({
-        id: generateId(),
+        id: logId,
         date,
         cardId: currentCard.id,
         deckId,
         status: logStatus,
         timestamp: Date.now(),
+      });
+
+      // Snapshot state BEFORE the swipe for undo
+      setUndoSnapshot({
+        cards: [...cards],
+        currentIndex,
+        stats: { ...stats },
+        runLiveStates: run.liveCardStates.map((s) => ({ ...s })),
+        runStatus: run.status,
+        logId,
       });
 
       switch (direction) {
@@ -235,12 +282,35 @@ export default function PlayScreen({ route, navigation }: Props) {
       cards,
       currentIndex,
       run,
+      stats,
       date,
       deckId,
       triggerFlipReveal,
       triggerShuffleJitter,
     ]
   );
+
+  // Undo the last swipe
+  const handleUndo = useCallback(async () => {
+    if (!undoSnapshot || !run) return;
+    // Remove the log entry
+    await deleteLog(undoSnapshot.logId);
+    // Restore state
+    setCards(undoSnapshot.cards);
+    setCurrentIndex(undoSnapshot.currentIndex);
+    setStats(undoSnapshot.stats);
+    const restoredRun: DailyRun = {
+      ...run,
+      liveCardStates: undoSnapshot.runLiveStates,
+      status: undoSnapshot.runStatus,
+      updatedAt: Date.now(),
+    };
+    setRun(restoredRun);
+    await saveDailyRun(restoredRun);
+    setUndoSnapshot(null);
+    totalSwiped.current = Math.max(0, totalSwiped.current - 1);
+    triggerFlipReveal();
+  }, [undoSnapshot, run, triggerFlipReveal]);
 
   const handleLongPressDismiss = useCallback(async () => {
     setPaused(true);
@@ -270,6 +340,12 @@ export default function PlayScreen({ route, navigation }: Props) {
     if (Platform.OS !== 'web') return;
     const isDone = currentIndex >= cards.length;
     const handler = (e: KeyboardEvent) => {
+      // Cmd/Ctrl+Z → undo (works even when paused)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
       if (paused || isDone) return;
       switch (e.key) {
         case 'ArrowRight':
@@ -300,7 +376,7 @@ export default function PlayScreen({ route, navigation }: Props) {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [paused, currentIndex, cards.length, handleSwipe, handleLongPressDismiss, navigation]);
+  }, [paused, currentIndex, cards.length, handleSwipe, handleLongPressDismiss, handleUndo, navigation]);
 
   if (loading) {
     return (
@@ -344,7 +420,50 @@ export default function PlayScreen({ route, navigation }: Props) {
       <View style={styles.container}>
         <DeckComplete
           stats={{ total: totalSwiped.current, ...stats }}
-          onRestart={() => navigation.goBack()}
+          nextDeckName={nextDeck?.name}
+          onPlayNext={
+            nextDeck
+              ? async () => {
+                  // Create or resume a run for the next deck
+                  const today = todayString();
+                  let run = await getDailyRun(nextDeck.id, today);
+                  if (!run) {
+                    let orderedIds = nextDeck.cardRefs
+                      .sort(
+                        (a, b) => a.positionInDeck - b.positionInDeck
+                      )
+                      .map((r) => r.cardId);
+                    if (nextDeck.orderMode === 'random') {
+                      for (let i = orderedIds.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [orderedIds[i], orderedIds[j]] = [
+                          orderedIds[j],
+                          orderedIds[i],
+                        ];
+                      }
+                    }
+                    run = {
+                      date: today,
+                      deckId: nextDeck.id,
+                      liveCardStates: orderedIds.map((cardId, i) => ({
+                        cardId,
+                        status: 'pending' as const,
+                        position: i,
+                      })),
+                      status: 'in-progress',
+                      startedAt: Date.now(),
+                      updatedAt: Date.now(),
+                    };
+                    await saveDailyRun(run);
+                  }
+                  navigation.replace('Play', {
+                    deckId: nextDeck.id,
+                    date: today,
+                  });
+                }
+              : undefined
+          }
+          onBackToList={() => navigation.navigate('DeckList')}
         />
       </View>
     );
@@ -377,7 +496,18 @@ export default function PlayScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      <Text style={styles.hint}>Long-press to pause deck</Text>
+      {/* Undo pill */}
+      {undoSnapshot && (
+        <Pressable style={styles.undoPill} onPress={handleUndo}>
+          <Text style={styles.undoText}>{'\u21BA'} Undo</Text>
+        </Pressable>
+      )}
+
+      <Text style={styles.hint}>
+        {Platform.OS === 'web'
+          ? 'Long-press to pause  \u2022  \u21E7 arrows to swipe  \u2022  \u2318Z to undo'
+          : 'Long-press to pause deck'}
+      </Text>
     </View>
   );
 }
@@ -415,7 +545,18 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   cardAnchor: { width: CARD_WIDTH, height: CARD_HEIGHT },
-  hint: { fontSize: 12, color: '#aaa', paddingBottom: 8 },
+  hint: { fontSize: 11, color: '#aaa', paddingBottom: 8, textAlign: 'center', paddingHorizontal: 16 },
+  undoPill: {
+    position: 'absolute',
+    bottom: 32,
+    alignSelf: 'center',
+    backgroundColor: '#333',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    boxShadow: '0px 2px 8px rgba(0,0,0,0.2)',
+  },
+  undoText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   // Paused
   pausedContainer: {
     flex: 1,

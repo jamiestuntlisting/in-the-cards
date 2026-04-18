@@ -104,6 +104,14 @@ export default function CardEditorScreen({ route, navigation }: Props) {
     setBlocks(blocks.filter((_, i) => i !== index));
   };
 
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? index - 1 : index + 1;
+    if (toIndex < 0 || toIndex >= blocks.length) return;
+    const updated = [...blocks];
+    [updated[index], updated[toIndex]] = [updated[toIndex], updated[index]];
+    setBlocks(updated);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -157,6 +165,38 @@ export default function CardEditorScreen({ route, navigation }: Props) {
                 style={styles.imagePreview}
               />
             ) : null}
+            {blocks.length > 1 && (
+              <View style={styles.reorderBtns}>
+                <Pressable
+                  onPress={() => moveBlock(i, 'up')}
+                  disabled={i === 0}
+                  style={styles.reorderBtn}
+                >
+                  <Text
+                    style={[
+                      styles.reorderArrow,
+                      i === 0 && styles.reorderDisabled,
+                    ]}
+                  >
+                    {'\u25B2'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => moveBlock(i, 'down')}
+                  disabled={i === blocks.length - 1}
+                  style={styles.reorderBtn}
+                >
+                  <Text
+                    style={[
+                      styles.reorderArrow,
+                      i === blocks.length - 1 && styles.reorderDisabled,
+                    ]}
+                  >
+                    {'\u25BC'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
             <Pressable onPress={() => removeBlock(i)}>
               <Text style={styles.removeBlock}>{'\u00D7'}</Text>
             </Pressable>
@@ -279,6 +319,15 @@ const styles = StyleSheet.create({
     color: '#ccc',
     paddingHorizontal: 4,
   },
+  reorderBtns: {
+    flexDirection: 'column',
+    gap: 2,
+    width: 18,
+    alignItems: 'center',
+  },
+  reorderBtn: { padding: 1 },
+  reorderArrow: { fontSize: 10, color: '#4A90D9' },
+  reorderDisabled: { color: '#ddd' },
   addBlockRow: {
     flexDirection: 'row',
     gap: 8,
