@@ -20,6 +20,8 @@ import {
   getDailyRun,
   getAllDailyRuns,
   saveDailyRun,
+  saveCard,
+  generateId,
   todayString,
 } from '../data/storage';
 import {
@@ -29,6 +31,7 @@ import {
 } from '../data/notifications';
 import TimeInput from '../components/TimeInput';
 import ScreenContainer from '../components/ScreenContainer';
+import CardComposer, { type CardState } from '../components/CardComposer';
 import {
   color,
   font,
@@ -66,6 +69,15 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [todayRun, setTodayRun] = useState<DailyRun | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Inline card composer state
+  const emptyComposer: CardState = {
+    title: '',
+    blocks: [],
+    timerSeconds: undefined,
+    link: undefined,
+  };
+  const [composer, setComposer] = useState<CardState>(emptyComposer);
 
   const reload = useCallback(async () => {
     const [d, allCards] = await Promise.all([getDeck(deckId), getAllCards()]);
@@ -121,6 +133,33 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
       .map((ref) => allCards.find((c) => c.id === ref.cardId))
       .filter(Boolean) as Card[];
     setCards(ordered);
+  };
+
+  const addComposerCard = async () => {
+    if (!deck || !composer.title.trim()) return;
+    const newCard: Card = {
+      id: generateId(),
+      title: composer.title.trim(),
+      content: composer.blocks.filter((b) => b.value.trim().length > 0),
+      timer:
+        composer.timerSeconds != null && composer.timerSeconds > 0
+          ? { durationSeconds: composer.timerSeconds }
+          : undefined,
+      link: composer.link?.trim() ? composer.link.trim() : undefined,
+      createdAt: Date.now(),
+    };
+    await saveCard(newCard);
+    const updated: Deck = {
+      ...deck,
+      cardRefs: [
+        ...deck.cardRefs,
+        { cardId: newCard.id, positionInDeck: deck.cardRefs.length },
+      ],
+    };
+    await saveDeck(updated);
+    setDeck(updated);
+    setCards((prev) => [...prev, newCard]);
+    setComposer(emptyComposer);
   };
 
   const startOrResume = async () => {
@@ -305,14 +344,35 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {/* Add card — now the primary action at top */}
-      <Pressable
-        style={styles.addCardTop}
-        onPress={() => navigation.navigate('CardPicker', { deckId: deck.id })}
-      >
-        <PlusIcon size={20} color="#fff" strokeWidth={2.2} />
-        <Text style={styles.addCardTopText}>Add Card</Text>
-      </Pressable>
+      {/* Inline WYSIWYG composer — the editor IS the card */}
+      <View style={styles.composerWrap}>
+        <CardComposer
+          state={composer}
+          onChange={setComposer}
+          size="inline"
+        />
+        <View style={styles.composerActions}>
+          <Pressable
+            style={styles.libraryBtn}
+            onPress={() =>
+              navigation.navigate('CardPicker', { deckId: deck.id })
+            }
+          >
+            <Text style={styles.libraryBtnText}>From library</Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.addToDeckBtn,
+              !composer.title.trim() && styles.addToDeckBtnDisabled,
+            ]}
+            onPress={addComposerCard}
+            disabled={!composer.title.trim()}
+          >
+            <PlusIcon size={16} color="#fff" strokeWidth={2.2} />
+            <Text style={styles.addToDeckText}>Add to deck</Text>
+          </Pressable>
+        </View>
+      </View>
 
       {/* Card list */}
       <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
@@ -456,21 +516,44 @@ const styles = StyleSheet.create({
     fontSize: fontSize.ui,
     color: color.fg2,
   },
-  addCardTop: {
+  composerWrap: {
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
+  },
+  composerActions: {
+    flexDirection: 'row',
+    gap: space[2],
+    marginTop: space[3],
+    justifyContent: 'center',
+  },
+  libraryBtn: {
+    paddingHorizontal: space[4],
+    paddingVertical: space[2] + 2,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.hairline,
+    backgroundColor: color.bgRaised,
+  },
+  libraryBtnText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+    fontWeight: fontWeight.medium,
+  },
+  addToDeckBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: space[2],
-    marginHorizontal: space[5],
-    marginVertical: space[3],
-    backgroundColor: suit.heart,
+    gap: 6,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2] + 2,
     borderRadius: radius.m,
-    paddingVertical: 14,
+    backgroundColor: suit.heart,
   },
-  addCardTopText: {
+  addToDeckBtnDisabled: { opacity: 0.4 },
+  addToDeckText: {
     fontFamily: font.text,
+    fontSize: fontSize.ui,
     color: '#fff',
-    fontSize: fontSize.bodyL,
     fontWeight: fontWeight.semibold,
   },
   resumeBottom: {
