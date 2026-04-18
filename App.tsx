@@ -5,12 +5,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
 import type { RootStackParamList } from './src/navigation';
 import { seedIfNeeded } from './src/data/seedData';
 import { checkMidnightRollover } from './src/data/rollover';
 import { initTriggers } from './src/data/notifications';
 import { getAllDecks } from './src/data/storage';
 import { determineInitialAction } from './src/data/initialRoute';
+import { color } from './src/design/tokens';
 
 import DeckListScreen from './src/screens/DeckListScreen';
 import DeckDetailScreen from './src/screens/DeckDetailScreen';
@@ -34,6 +36,23 @@ export default function App() {
     screen: 'DeckList',
   });
 
+  // Load the Bodoni 72 Smallcaps display font
+  const [fontsLoaded] = useFonts({
+    BodoniSmallcaps: require('./assets/fonts/Bodoni_72_Smallcaps_Book.ttf'),
+  });
+
+  // Inject Google Fonts (Instrument Sans + JetBrains Mono) on web
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (document.getElementById('google-fonts-link')) return;
+    const link = document.createElement('link');
+    link.id = 'google-fonts-link';
+    link.rel = 'stylesheet';
+    link.href =
+      'https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap';
+    document.head.appendChild(link);
+  }, []);
+
   // Seed tutorial deck on first launch + lock body scroll on web
   useEffect(() => {
     seedIfNeeded()
@@ -52,13 +71,25 @@ export default function App() {
       document.body.style.width = '100%';
       document.body.style.height = '100%';
       document.documentElement.style.overflow = 'hidden';
+      // Set page-level font so any non-styled text inherits it
+      document.body.style.fontFamily =
+        "'Instrument Sans', ui-sans-serif, system-ui, sans-serif";
+      document.body.style.backgroundColor = color.bgPage;
+      document.body.style.color = color.fg1;
     }
   }, []);
 
-  if (!ready) {
+  if (!ready || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F0EB' }}>
-        <ActivityIndicator size="large" color="#4A90D9" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: color.bgPage,
+        }}
+      >
+        <ActivityIndicator size="large" color={color.link} />
       </View>
     );
   }

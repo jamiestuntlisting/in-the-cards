@@ -34,6 +34,23 @@ import SwipeableCard, { SwipeDirection } from '../SwipeableCard';
 import CardStack from '../CardStack';
 import DeckComplete from '../DeckComplete';
 import { CARD_WIDTH, CARD_HEIGHT } from '../cardDimensions';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  shadow,
+  space,
+  suit,
+} from '../design/tokens';
+import {
+  ChevronLeftIcon,
+  PauseIcon,
+  UndoIcon,
+  PlayIcon,
+} from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Play'>;
 
@@ -381,7 +398,7 @@ export default function PlayScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4A90D9" />
+        <ActivityIndicator size="large" color={color.link} />
       </View>
     );
   }
@@ -395,19 +412,22 @@ export default function PlayScreen({ route, navigation }: Props) {
     return (
       <View style={styles.container}>
         <View style={styles.pausedContainer}>
-          <Text style={styles.pausedEmoji}>{'\u23F8\uFE0F'}</Text>
+          <View style={styles.pausedIconWrap}>
+            <PauseIcon size={48} color={color.fg2} strokeWidth={1.5} />
+          </View>
           <Text style={styles.pausedTitle}>Deck Paused</Text>
           <Text style={styles.pausedSubtitle}>
             {cards.length - currentIndex} of {cards.length} cards remaining
           </Text>
           <Pressable style={styles.resumeButton} onPress={handleResume}>
+            <PlayIcon size={18} color="#fff" strokeWidth={2.2} />
             <Text style={styles.btnText}>Resume</Text>
           </Pressable>
           <Pressable
-            style={[styles.resumeButton, { backgroundColor: '#888' }]}
+            style={styles.secondaryButton}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.btnText}>Back to Deck</Text>
+            <Text style={styles.secondaryText}>Back to Deck</Text>
           </Pressable>
         </View>
       </View>
@@ -472,12 +492,16 @@ export default function PlayScreen({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtn}>{'\u2039'}</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          hitSlop={8}
+        >
+          <ChevronLeftIcon size={24} color={color.link} strokeWidth={2.2} />
         </Pressable>
         <Text style={styles.headerTitle}>{deckName}</Text>
         <Text style={styles.counter}>
-          {currentIndex + 1} of {cards.length}
+          {currentIndex + 1} / {cards.length}
         </Text>
       </View>
 
@@ -499,13 +523,14 @@ export default function PlayScreen({ route, navigation }: Props) {
       {/* Undo pill */}
       {undoSnapshot && (
         <Pressable style={styles.undoPill} onPress={handleUndo}>
-          <Text style={styles.undoText}>{'\u21BA'} Undo</Text>
+          <UndoIcon size={14} color="#fff" strokeWidth={2.2} />
+          <Text style={styles.undoText}>Undo</Text>
         </Pressable>
       )}
 
       <Text style={styles.hint}>
         {Platform.OS === 'web'
-          ? 'Long-press to pause  \u2022  \u21E7 arrows to swipe  \u2022  \u2318Z to undo'
+          ? 'Long-press to pause  \u2022  arrows to swipe  \u2022  \u2318Z to undo'
           : 'Long-press to pause deck'}
       </Text>
     </View>
@@ -513,29 +538,37 @@ export default function PlayScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: color.bgPage, alignItems: 'center' },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F0EB',
+    backgroundColor: color.bgPage,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    maxWidth: 400,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    maxWidth: 500,
+    paddingHorizontal: space[4],
+    paddingTop: space[2],
+    paddingBottom: space[1],
   },
-  backBtn: { fontSize: 28, color: '#4A90D9', paddingRight: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#333' },
+  backBtn: { paddingRight: space[2] },
+  headerTitle: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+  },
   counter: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#888',
+    fontFamily: font.mono,
+    fontSize: fontSize.counter,
+    fontWeight: fontWeight.medium,
+    color: color.fg3,
     fontVariant: ['tabular-nums'],
   },
   cardArea: {
@@ -545,34 +578,85 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   cardAnchor: { width: CARD_WIDTH, height: CARD_HEIGHT },
-  hint: { fontSize: 11, color: '#aaa', paddingBottom: 8, textAlign: 'center', paddingHorizontal: 16 },
+  hint: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    paddingBottom: space[2],
+    textAlign: 'center',
+    paddingHorizontal: space[4],
+  },
   undoPill: {
     position: 'absolute',
-    bottom: 32,
+    bottom: space[7],
     alignSelf: 'center',
-    backgroundColor: '#333',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    boxShadow: '0px 2px 8px rgba(0,0,0,0.2)',
+    backgroundColor: color.fg1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: space[4],
+    paddingVertical: space[2],
+    borderRadius: radius.full,
+    ...shadow.lift,
   },
-  undoText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  undoText: {
+    fontFamily: font.text,
+    color: '#fff',
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+  },
   // Paused
   pausedContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: space[7],
   },
-  pausedEmoji: { fontSize: 64, marginBottom: 16 },
-  pausedTitle: { fontSize: 28, fontWeight: '700', color: '#333', marginBottom: 8 },
-  pausedSubtitle: { fontSize: 16, color: '#888', marginBottom: 32 },
+  pausedIconWrap: { marginBottom: space[4] },
+  pausedTitle: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayL,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+    marginBottom: space[2],
+  },
+  pausedSubtitle: {
+    fontFamily: font.text,
+    fontSize: fontSize.body,
+    color: color.fg3,
+    marginBottom: space[7],
+  },
   resumeButton: {
-    paddingHorizontal: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    paddingHorizontal: space[7],
     paddingVertical: 14,
-    backgroundColor: '#4A90D9',
-    borderRadius: 24,
-    marginBottom: 12,
+    backgroundColor: suit.heart,
+    borderRadius: radius.xl,
+    marginBottom: space[3],
+    minWidth: 220,
+    justifyContent: 'center',
+    ...shadow.fab,
   },
-  btnText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  secondaryButton: {
+    paddingHorizontal: space[7],
+    paddingVertical: space[3],
+    minWidth: 220,
+    alignItems: 'center',
+  },
+  secondaryText: {
+    fontFamily: font.text,
+    color: color.fg3,
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.medium,
+  },
+  btnText: {
+    fontFamily: font.text,
+    color: '#fff',
+    fontSize: fontSize.bodyL,
+    fontWeight: fontWeight.semibold,
+  },
 });

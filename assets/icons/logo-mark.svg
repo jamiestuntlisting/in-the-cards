@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 168">
+  
+  <defs>
+    
+  </defs>
+  
+  <g transform="translate(60 84) rotate(-6) translate(-60 -84)">
+    <rect x="18" y="20" width="84" height="128" rx="10" ry="10" fill="#FAF6EF" stroke="#1A1714" stroke-width="2"></rect>
+    
+    <text x="28" y="42" font-family="Fraunces, serif" font-weight="700" font-size="18" class="ink">A</text>
+    <path class="red" d="M28 50 l5 -5 a3 3 0 0 1 5 3 a3 3 0 0 1 5 -3 l5 5 l-10 10 z" transform="scale(0.6) translate(20 5)"></path>
+    
+    <path class="red" d="M60 70 C 60 60, 42 60, 42 76 C 42 92, 60 104, 60 112 C 60 104, 78 92, 78 76 C 78 60, 60 60, 60 70 Z"></path>
+    
+    <g transform="translate(120 168) rotate(180)">
+      <text x="28" y="42" font-family="Fraunces, serif" font-weight="700" font-size="18" class="ink">A</text>
+    </g>
+  </g>
+</svg>

@@ -20,6 +20,22 @@ import {
   todayString,
   generateId,
 } from '../data/storage';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  suit,
+  suitTint,
+} from '../design/tokens';
+import {
+  ChevronLeftIcon,
+  CheckIcon,
+  PlusIcon,
+} from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Goals'>;
 
@@ -46,7 +62,6 @@ export default function GoalsScreen({ navigation }: Props) {
   const today = todayString();
 
   const getGoalStats = (goal: Goal) => {
-    // Check if all cards in goal were completed today
     const todayComplete = new Set(
       logs
         .filter((l) => l.date === today && l.status === 'complete')
@@ -54,7 +69,6 @@ export default function GoalsScreen({ navigation }: Props) {
     );
     const metToday = goal.cardIds.every((id) => todayComplete.has(id));
 
-    // Current streak: consecutive days (backwards from today) where all cards complete
     const dateSet = new Map<string, Set<string>>();
     for (const log of logs) {
       if (log.status !== 'complete') continue;
@@ -75,7 +89,6 @@ export default function GoalsScreen({ navigation }: Props) {
       }
     }
 
-    // Longest streak
     const allDates = [...dateSet.keys()].sort();
     let longest = 0;
     let run = 0;
@@ -102,15 +115,15 @@ export default function GoalsScreen({ navigation }: Props) {
       }
     }
 
-    // Completion rate: days with all complete / total days with any log
     const uniqueDates = [...new Set(logs.map((l) => l.date))];
     const daysComplete = uniqueDates.filter((d) => {
       const dayLogs = dateSet.get(d);
       return dayLogs && goal.cardIds.every((id) => dayLogs.has(id));
     }).length;
-    const rate = uniqueDates.length > 0
-      ? Math.round((daysComplete / uniqueDates.length) * 100)
-      : 0;
+    const rate =
+      uniqueDates.length > 0
+        ? Math.round((daysComplete / uniqueDates.length) * 100)
+        : 0;
 
     return { metToday, streak, longest, rate };
   };
@@ -149,8 +162,13 @@ export default function GoalsScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>{'\u2039'} Back</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          hitSlop={8}
+        >
+          <ChevronLeftIcon size={22} color={color.link} strokeWidth={2.2} />
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
       </View>
 
@@ -176,7 +194,12 @@ export default function GoalsScreen({ navigation }: Props) {
             >
               <View style={styles.goalHeader}>
                 <Text style={styles.goalName}>{goal.name}</Text>
-                {s.metToday && <Text style={styles.metBadge}>{'\u2713'} Today</Text>}
+                {s.metToday && (
+                  <View style={styles.metBadge}>
+                    <CheckIcon size={12} color={suit.heart} strokeWidth={2.2} />
+                    <Text style={styles.metBadgeText}>Today</Text>
+                  </View>
+                )}
               </View>
               <View style={styles.goalStats}>
                 <View style={styles.goalStat}>
@@ -193,8 +216,8 @@ export default function GoalsScreen({ navigation }: Props) {
                 </View>
               </View>
               <Text style={styles.goalCards}>
-                {goal.cardIds.length} card{goal.cardIds.length !== 1 ? 's' : ''}{' '}
-                {'\u2022'} Long-press to delete
+                {goal.cardIds.length} card
+                {goal.cardIds.length !== 1 ? 's' : ''} {'\u2022'} Long-press to delete
               </Text>
             </Pressable>
           );
@@ -208,29 +231,43 @@ export default function GoalsScreen({ navigation }: Props) {
                   value={newName}
                   onChangeText={setNewName}
                   placeholder="Goal name"
-                  placeholderTextColor="#bbb"
+                  placeholderTextColor={color.fg4}
                   autoFocus
                 />
                 <Text style={styles.pickLabel}>
                   Pick cards ({selectedCardIds.length} selected)
                 </Text>
-                {cards.map((card) => (
-                  <Pressable
-                    key={card.id}
-                    style={[
-                      styles.pickRow,
-                      selectedCardIds.includes(card.id) && styles.pickRowActive,
-                    ]}
-                    onPress={() => toggleCard(card.id)}
-                  >
-                    <Text style={styles.pickCheck}>
-                      {selectedCardIds.includes(card.id) ? '\u2611' : '\u2610'}
-                    </Text>
-                    <Text style={styles.pickTitle} numberOfLines={1}>
-                      {card.title}
-                    </Text>
-                  </Pressable>
-                ))}
+                {cards.map((card) => {
+                  const selected = selectedCardIds.includes(card.id);
+                  return (
+                    <Pressable
+                      key={card.id}
+                      style={[
+                        styles.pickRow,
+                        selected && styles.pickRowActive,
+                      ]}
+                      onPress={() => toggleCard(card.id)}
+                    >
+                      <View
+                        style={[
+                          styles.pickCheck,
+                          selected && styles.pickCheckActive,
+                        ]}
+                      >
+                        {selected && (
+                          <CheckIcon
+                            size={12}
+                            color="#fff"
+                            strokeWidth={2.5}
+                          />
+                        )}
+                      </View>
+                      <Text style={styles.pickTitle} numberOfLines={1}>
+                        {card.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
                 <View style={styles.createActions}>
                   <Pressable onPress={() => setShowCreate(false)}>
                     <Text style={styles.cancelText}>Cancel</Text>
@@ -250,10 +287,11 @@ export default function GoalsScreen({ navigation }: Props) {
             )}
             {!showCreate && (
               <Pressable
-                style={styles.addBtn}
+                style={styles.addBtnRow}
                 onPress={() => setShowCreate(true)}
               >
-                <Text style={styles.addBtnText}>+ New Goal</Text>
+                <PlusIcon size={16} color={color.link} strokeWidth={2.2} />
+                <Text style={styles.addBtnText}>New Goal</Text>
               </Pressable>
             )}
           </>
@@ -264,105 +302,194 @@ export default function GoalsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
-  headerRow: { paddingHorizontal: 20, paddingTop: 56 },
-  back: { fontSize: 17, color: '#4A90D9' },
-  heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#222',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+  container: { flex: 1, backgroundColor: color.bgPage },
+  headerRow: { paddingHorizontal: space[5], paddingTop: space[9] },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  backText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
   },
-  list: { padding: 16, paddingBottom: 40 },
-  empty: { textAlign: 'center', color: '#999', fontSize: 16, marginTop: 40 },
+  heading: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayM,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+    paddingHorizontal: space[5],
+    paddingBottom: space[3],
+  },
+  list: { padding: space[4], paddingBottom: space[9] },
+  empty: {
+    fontFamily: font.text,
+    textAlign: 'center',
+    color: color.fg4,
+    fontSize: fontSize.body,
+    marginTop: space[8],
+  },
   goalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.l,
+    padding: space[4],
+    marginBottom: space[3],
+    borderWidth: 1,
+    borderColor: color.cardStroke,
   },
   goalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: space[3] - 2,
   },
-  goalName: { fontSize: 18, fontWeight: '600', color: '#222' },
+  goalName: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+  },
   metBadge: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4CAF50',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: suitTint.heart,
+    paddingHorizontal: space[2] + 2,
     paddingVertical: 3,
-    borderRadius: 8,
-    overflow: 'hidden',
+    borderRadius: radius.s,
   },
-  goalStats: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  metBadgeText: {
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: suit.heart,
+  },
+  goalStats: {
+    flexDirection: 'row',
+    gap: space[3] - 2,
+    marginBottom: space[2],
+  },
   goalStat: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#F8F5F1',
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: color.bgSunken,
+    borderRadius: radius.s,
+    padding: space[3] - 2,
   },
-  goalStatVal: { fontSize: 20, fontWeight: '700', color: '#333' },
-  goalStatLabel: { fontSize: 11, color: '#888', marginTop: 2 },
-  goalCards: { fontSize: 12, color: '#aaa' },
+  goalStatVal: {
+    fontFamily: font.mono,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.semibold,
+    color: color.fg1,
+  },
+  goalStatLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    marginTop: 2,
+  },
+  goalCards: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+  },
   // Create form
   createForm: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.l,
+    padding: space[4],
+    marginBottom: space[3],
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   nameInput: {
-    fontSize: 17,
-    padding: 12,
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    padding: space[3],
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    color: '#222',
-    marginBottom: 12,
+    borderBottomColor: color.hairline,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+    marginBottom: space[3],
   },
   pickLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
-    marginBottom: 8,
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
+    textTransform: 'uppercase',
+    letterSpacing: letterSpacing.label,
+    marginBottom: space[2],
   },
   pickRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
-    gap: 8,
+    padding: space[2] + 2,
+    borderRadius: radius.s,
+    gap: space[2],
   },
-  pickRowActive: { backgroundColor: '#E8F0FE' },
-  pickCheck: { fontSize: 18, color: '#4A90D9' },
-  pickTitle: { flex: 1, fontSize: 15, color: '#333' },
+  pickRowActive: { backgroundColor: suitTint.heart },
+  pickCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: radius.xs,
+    borderWidth: 1.5,
+    borderColor: color.hairline,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickCheckActive: {
+    backgroundColor: suit.heart,
+    borderColor: suit.heart,
+  },
+  pickTitle: {
+    flex: 1,
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg1,
+  },
   createActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: space[3],
   },
-  cancelText: { fontSize: 15, color: '#888' },
+  cancelText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg3,
+  },
   saveBtn: {
-    backgroundColor: '#4A90D9',
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    backgroundColor: suit.heart,
+    borderRadius: radius.m,
+    paddingHorizontal: space[5],
+    paddingVertical: space[2] + 2,
   },
   saveBtnDisabled: { opacity: 0.4 },
-  saveText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  addBtn: {
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
-    alignItems: 'center',
+  saveText: {
+    fontFamily: font.text,
+    color: '#fff',
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.semibold,
   },
-  addBtnText: { fontSize: 15, color: '#4A90D9', fontWeight: '600' },
+  addBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    padding: 14,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.hairline,
+    borderStyle: 'dashed',
+  },
+  addBtnText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+    fontWeight: fontWeight.semibold,
+  },
 });

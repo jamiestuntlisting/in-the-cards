@@ -13,6 +13,25 @@ import Animated, {
 import type { CardData } from './sampleCards';
 import TimerOverlay from './TimerOverlay';
 import { CARD_WIDTH, CARD_HEIGHT } from './cardDimensions';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  lineHeight,
+  radius,
+  shadow,
+  space,
+  suit,
+  suitTint,
+} from './design/tokens';
+import {
+  HeartIcon,
+  SpadeIcon,
+  DiamondIcon,
+  ClubIcon,
+} from './design/icons';
 
 export type SwipeDirection = 'right' | 'left' | 'up' | 'down';
 
@@ -42,7 +61,6 @@ export default function SwipeableCard({
   const cardScale = useSharedValue(1);
   const isAnimating = useSharedValue(false);
 
-  // Long press state
   const longPressProgress = useSharedValue(0);
   const isLongPressing = useSharedValue(false);
   const longPressTranslateX = useSharedValue(0);
@@ -55,7 +73,6 @@ export default function SwipeableCard({
 
     switch (direction) {
       case 'right':
-        // Fly right, rotate 15deg, fade slightly
         translateX.value = withTiming(SCREEN_WIDTH + 200, {
           duration,
           easing: Easing.out(Easing.cubic),
@@ -67,7 +84,6 @@ export default function SwipeableCard({
         break;
 
       case 'up':
-        // Fly up, fade aggressively
         translateY.value = withTiming(-SCREEN_HEIGHT - 200, {
           duration,
           easing: Easing.out(Easing.cubic),
@@ -78,28 +94,22 @@ export default function SwipeableCard({
         break;
 
       case 'left':
-        // Arc back — slide left then spring back behind next card
         translateX.value = withTiming(
           -120,
           { duration: 200, easing: Easing.out(Easing.cubic) },
           () => {
             translateX.value = withSpring(0, { damping: 12, stiffness: 100 });
             translateY.value = withTiming(20, { duration: 200 });
-            cardScale.value = withTiming(
-              0.95,
-              { duration: 300 },
-              () => {
-                cardOpacity.value = withTiming(0, { duration: 100 }, () => {
-                  runOnJS(onSwipe)('left');
-                });
-              }
-            );
+            cardScale.value = withTiming(0.95, { duration: 300 }, () => {
+              cardOpacity.value = withTiming(0, { duration: 100 }, () => {
+                runOnJS(onSwipe)('left');
+              });
+            });
           }
         );
         break;
 
       case 'down':
-        // Drop down into deck
         translateY.value = withTiming(
           100,
           { duration: 250, easing: Easing.in(Easing.cubic) },
@@ -130,7 +140,6 @@ export default function SwipeableCard({
       if (isAnimating.value || isLongPressing.value) return;
       translateX.value = e.translationX;
       translateY.value = e.translationY;
-      // Slight rotation following horizontal drag
       cardRotation.value = e.translationX * 0.05;
     })
     .onEnd((e) => {
@@ -141,7 +150,6 @@ export default function SwipeableCard({
       const velX = Math.abs(e.velocityX);
       const velY = Math.abs(e.velocityY);
 
-      // Determine dominant axis
       const isHorizontal = absX > absY;
       const isVertical = absY > absX;
 
@@ -181,14 +189,10 @@ export default function SwipeableCard({
       runOnJS(onLongPressDismiss)();
     });
 
-  // Pan takes priority — movement activates swipe, stillness activates long-press
   const composed = Gesture.Exclusive(panGesture, longPressGesture);
 
-  // Card drag animation
   const cardAnimatedStyle = useAnimatedStyle(() => {
-    // Flip effect: perspective + rotateX based on flipProgress
     const flipRotation = interpolate(flipProgress.value, [0, 1], [90, 0]);
-
     return {
       transform: [
         { perspective: 1000 },
@@ -202,38 +206,48 @@ export default function SwipeableCard({
     };
   });
 
-  // Direction hint indicators
   const hintRightStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 0.8], 'clamp'),
+    opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 0.9], 'clamp'),
   }));
   const hintLeftStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateX.value, [0, -SWIPE_THRESHOLD], [0, 0.8], 'clamp'),
+    opacity: interpolate(translateX.value, [0, -SWIPE_THRESHOLD], [0, 0.9], 'clamp'),
   }));
   const hintUpStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateY.value, [0, -SWIPE_THRESHOLD], [0, 0.8], 'clamp'),
+    opacity: interpolate(translateY.value, [0, -SWIPE_THRESHOLD], [0, 0.9], 'clamp'),
   }));
   const hintDownStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateY.value, [0, SWIPE_THRESHOLD], [0, 0.8], 'clamp'),
+    opacity: interpolate(translateY.value, [0, SWIPE_THRESHOLD], [0, 0.9], 'clamp'),
   }));
 
   return (
     <GestureDetector gesture={composed}>
       <Animated.View style={[styles.card, cardAnimatedStyle]}>
-        {/* Swipe direction hints */}
-        <Animated.View style={[styles.hintBadge, styles.hintRight, hintRightStyle]}>
-          <Text style={styles.hintText}>&#10003;</Text>
+        {/* Suit corner mark (top-left, decorative — no swipe direction bias) */}
+        <View style={styles.cornerSuit}>
+          <HeartIcon size={16} color={suit.heart} strokeWidth={1.5} />
+        </View>
+
+        {/* Swipe direction hints (suit glyphs) */}
+        <Animated.View
+          style={[styles.hintBadge, styles.hintRight, hintRightStyle]}
+        >
+          <HeartIcon size={26} color="#fff" strokeWidth={2} />
         </Animated.View>
-        <Animated.View style={[styles.hintBadge, styles.hintLeft, hintLeftStyle]}>
-          <Text style={styles.hintText}>&#8634;</Text>
+        <Animated.View
+          style={[styles.hintBadge, styles.hintLeft, hintLeftStyle]}
+        >
+          <DiamondIcon size={26} color="#fff" strokeWidth={2} />
         </Animated.View>
         <Animated.View style={[styles.hintBadge, styles.hintUp, hintUpStyle]}>
-          <Text style={styles.hintText}>&#10007;</Text>
+          <SpadeIcon size={26} color="#fff" strokeWidth={2} />
         </Animated.View>
-        <Animated.View style={[styles.hintBadge, styles.hintDown, hintDownStyle]}>
-          <Text style={styles.hintText}>&#9618;</Text>
+        <Animated.View
+          style={[styles.hintBadge, styles.hintDown, hintDownStyle]}
+        >
+          <ClubIcon size={26} color="#fff" strokeWidth={2} />
         </Animated.View>
 
-        {/* Card content — centered vertically and horizontally */}
+        {/* Card content */}
         <View style={styles.cardContent}>
           <Text style={styles.title}>{card.title}</Text>
 
@@ -262,9 +276,7 @@ export default function SwipeableCard({
             <TimerOverlay durationSeconds={card.timer.durationSeconds} />
           )}
 
-          {card.link && (
-            <Text style={styles.linkText}>{card.link}</Text>
-          )}
+          {card.link && <Text style={styles.linkText}>{card.link}</Text>}
         </View>
       </Animated.View>
     </GestureDetector>
@@ -275,79 +287,93 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.l,
+    borderWidth: 1,
+    borderColor: color.cardStroke, // 1px ink @ 12% — tentpole detail
     position: 'absolute',
     overflow: 'hidden',
+    ...shadow.card,
+  },
+  cornerSuit: {
+    position: 'absolute',
+    top: space[3],
+    left: space[3],
+    zIndex: 1,
+    opacity: 0.85,
   },
   cardContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: space[6],
+    paddingTop: space[8], // leave room for corner suit
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#222',
-    marginBottom: 16,
+    fontFamily: font.display,
+    fontSize: fontSize.displayL,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
     textAlign: 'center',
+    marginBottom: space[4],
+    lineHeight: fontSize.displayL * lineHeight.display,
   },
   bodyText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#555',
-    marginBottom: 12,
+    fontFamily: font.text,
+    fontSize: fontSize.bodyL,
+    lineHeight: fontSize.bodyL * lineHeight.body,
+    color: color.fg2,
+    marginBottom: space[3],
     textAlign: 'center',
   },
   image: {
     width: '100%',
     height: 160,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: radius.s,
+    marginBottom: space[3],
   },
   linkText: {
-    fontSize: 14,
-    color: '#4A90D9',
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.link,
+    marginTop: space[2],
     textAlign: 'center',
-    marginTop: 8,
   },
-  // Hint badges
+  // Hint badges — each in the suit's color
   hintBadge: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: radius.full,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+    ...shadow.lift,
   },
   hintRight: {
-    top: 16,
-    right: 16,
-    backgroundColor: '#4CAF50',
+    top: '50%',
+    right: space[5],
+    marginTop: -28,
+    backgroundColor: suit.heart,
   },
   hintLeft: {
-    top: 16,
-    left: 16,
-    backgroundColor: '#FF9800',
+    top: '50%',
+    left: space[5],
+    marginTop: -28,
+    backgroundColor: suit.diamond,
   },
   hintUp: {
-    top: 16,
+    top: space[5],
     left: '50%',
-    marginLeft: -24,
-    backgroundColor: '#F44336',
+    marginLeft: -28,
+    backgroundColor: suit.spade,
   },
   hintDown: {
-    bottom: 16,
+    bottom: space[5],
     left: '50%',
-    marginLeft: -24,
-    backgroundColor: '#9C27B0',
-  },
-  hintText: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '700',
+    marginLeft: -28,
+    backgroundColor: suit.club,
   },
 });

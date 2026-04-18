@@ -8,6 +8,16 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  radius,
+  space,
+  suit,
+} from './design/tokens';
+import { PlayIcon, PauseIcon } from './design/icons';
 
 interface TimerOverlayProps {
   durationSeconds: number;
@@ -29,7 +39,6 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
     }
   }, []);
 
-  // Pause on app background
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
       if (
@@ -46,7 +55,6 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
     return () => sub.remove();
   }, [running, clearTimer]);
 
-  // Tick
   useEffect(() => {
     if (!running) return;
     intervalRef.current = setInterval(() => {
@@ -63,10 +71,8 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
     return clearTimer;
   }, [running, clearTimer]);
 
-  // Smooth progress animation (linear to zero when running)
   useEffect(() => {
     if (running) {
-      // Animate from current progress to 1 over remaining seconds
       const currentPct = (durationSeconds - remaining) / durationSeconds;
       progress.value = currentPct;
       progress.value = withTiming(1, {
@@ -76,19 +82,16 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
     } else if (done) {
       progress.value = withTiming(1, { duration: 200 });
     } else {
-      // Stop at current value
       progress.value = (durationSeconds - remaining) / durationSeconds;
     }
   }, [running, done, remaining, durationSeconds, progress]);
 
-  // Reset progress if remaining returns to full (new start)
   useEffect(() => {
     if (remaining === durationSeconds && !running && !done) {
       progress.value = 0;
     }
   }, [remaining, durationSeconds, running, done, progress]);
 
-  // Blink 5 times on done
   useEffect(() => {
     if (!done) return;
     blinkOpacity.value = withSequence(
@@ -116,9 +119,7 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
-    return m > 0
-      ? `${m}:${sec.toString().padStart(2, '0')}`
-      : `${sec}s`;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `${sec}s`;
   };
 
   const reset = () => {
@@ -151,6 +152,7 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
             if (remaining > 0) setRunning(true);
           }}
         >
+          <PlayIcon size={14} color="#fff" strokeWidth={2.2} />
           <Text style={styles.startText}>
             {remaining < durationSeconds ? 'Resume' : 'Start'}
           </Text>
@@ -164,6 +166,7 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
             setRunning(false);
           }}
         >
+          <PauseIcon size={14} color="#fff" strokeWidth={2.2} />
           <Text style={styles.startText}>Pause</Text>
         </Pressable>
       )}
@@ -182,63 +185,70 @@ export default function TimerOverlay({ durationSeconds }: TimerOverlayProps) {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.04)',
-    borderRadius: 12,
-    minWidth: 180,
+    marginTop: space[3],
+    padding: space[3],
+    backgroundColor: 'rgba(26, 23, 20, 0.04)',
+    borderRadius: radius.m,
+    minWidth: 200,
   },
   timeText: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontFamily: font.mono,
+    fontSize: fontSize.timer,
+    fontWeight: fontWeight.medium,
+    color: color.fg1,
     fontVariant: ['tabular-nums'],
-    color: '#333',
   },
   progressTrack: {
     width: '100%',
     height: 4,
-    backgroundColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(26, 23, 20, 0.08)',
     borderRadius: 2,
-    marginTop: 6,
+    marginTop: space[1] + 2,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#4A90D9',
+    backgroundColor: suit.club, // teal for timer
     borderRadius: 2,
   },
   progressFillDone: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: suit.heart, // red when done
   },
   startButton: {
-    marginTop: 10,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    backgroundColor: '#4A90D9',
-    borderRadius: 20,
-  },
-  pauseButton: {
-    backgroundColor: '#888',
-  },
-  startText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  doneRow: {
-    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 6,
+    marginTop: space[2] + 2,
+    paddingHorizontal: space[5],
+    paddingVertical: space[2] + 2,
+    backgroundColor: suit.heart,
+    borderRadius: radius.xl,
+  },
+  pauseButton: {
+    backgroundColor: color.fg3,
+  },
+  startText: {
+    fontFamily: font.text,
+    color: '#fff',
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.semibold,
+  },
+  doneRow: {
+    marginTop: space[2],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
   },
   doneText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4CAF50',
+    fontFamily: font.text,
+    fontSize: fontSize.body,
+    fontWeight: fontWeight.semibold,
+    color: suit.heart,
   },
   resetText: {
-    fontSize: 14,
-    color: '#4A90D9',
-    fontWeight: '500',
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.link,
+    fontWeight: fontWeight.medium,
   },
 });

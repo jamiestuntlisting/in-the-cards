@@ -11,11 +11,19 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import type { Card, Deck } from '../data/types';
+import { getAllCards, getDeck, saveDeck } from '../data/storage';
 import {
-  getAllCards,
-  getDeck,
-  saveDeck,
-} from '../data/storage';
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  suit,
+  suitTint,
+} from '../design/tokens';
+import { PlusIcon, TimerIcon } from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardPicker'>;
 
@@ -34,7 +42,6 @@ export default function CardPickerScreen({ route, navigation }: Props) {
     }, [deckId])
   );
 
-  // Cards not already in this deck
   const inDeck = new Set(deck?.cardRefs.map((r) => r.cardId) ?? []);
   const available = allCards.filter(
     (c) =>
@@ -66,14 +73,13 @@ export default function CardPickerScreen({ route, navigation }: Props) {
         <View style={{ width: 50 }} />
       </View>
 
-      {/* Create new */}
       <Pressable
         style={styles.createNewRow}
         onPress={() => {
           navigation.replace('CardEditor', { deckId });
         }}
       >
-        <Text style={styles.createNewIcon}>+</Text>
+        <PlusIcon size={18} color="#fff" strokeWidth={2.2} />
         <Text style={styles.createNewText}>Create new card</Text>
       </Pressable>
 
@@ -82,7 +88,7 @@ export default function CardPickerScreen({ route, navigation }: Props) {
         value={query}
         onChangeText={setQuery}
         placeholder="Search library..."
-        placeholderTextColor="#bbb"
+        placeholderTextColor={color.fg4}
       />
 
       <Text style={styles.sectionTitle}>
@@ -107,11 +113,14 @@ export default function CardPickerScreen({ route, navigation }: Props) {
                 )}
             </View>
             {card.timer && (
-              <Text style={styles.timerBadge}>
-                {card.timer.durationSeconds}s
-              </Text>
+              <View style={styles.timerBadge}>
+                <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
+                <Text style={styles.timerBadgeText}>
+                  {card.timer.durationSeconds}s
+                </Text>
+              </View>
             )}
-            <Text style={styles.addPlus}>+</Text>
+            <PlusIcon size={18} color={color.link} strokeWidth={2.2} />
           </Pressable>
         )}
         ListEmptyComponent={
@@ -127,82 +136,114 @@ export default function CardPickerScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
+  container: { flex: 1, backgroundColor: color.bgPage },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 12,
+    paddingHorizontal: space[5],
+    paddingTop: space[9],
+    paddingBottom: space[3],
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e0db',
+    borderBottomColor: color.hairline,
   },
-  cancel: { fontSize: 16, color: '#888' },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: '#333' },
+  cancel: {
+    fontFamily: font.text,
+    fontSize: fontSize.body,
+    color: color.fg3,
+  },
+  headerTitle: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+  },
   createNewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4A90D9',
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
+    justifyContent: 'center',
+    backgroundColor: suit.heart,
+    marginHorizontal: space[4],
+    marginTop: space[3],
+    borderRadius: radius.m,
     padding: 14,
-    gap: 12,
+    gap: space[2],
   },
-  createNewIcon: { fontSize: 22, color: '#fff', fontWeight: '700' },
-  createNewText: { fontSize: 15, color: '#fff', fontWeight: '600' },
+  createNewText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: '#fff',
+    fontWeight: fontWeight.semibold,
+  },
   search: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    color: '#333',
+    fontFamily: font.text,
+    backgroundColor: color.bgRaised,
+    marginHorizontal: space[4],
+    marginTop: space[3],
+    borderRadius: radius.m,
+    padding: space[3],
+    fontSize: fontSize.ui,
+    color: color.fg1,
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    letterSpacing: letterSpacing.label,
+    paddingHorizontal: space[5],
+    paddingTop: space[4],
+    paddingBottom: space[2],
   },
-  list: { paddingHorizontal: 16, paddingBottom: 40 },
+  list: { paddingHorizontal: space[4], paddingBottom: space[8] },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 6,
-    gap: 10,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
+    padding: space[3],
+    marginBottom: space[1] + 2,
+    gap: space[3] - 2,
+    borderWidth: 1,
+    borderColor: color.cardStroke,
   },
-  cardTitle: { fontSize: 15, color: '#333', fontWeight: '500' },
-  cardPreview: { fontSize: 12, color: '#999', marginTop: 2 },
+  cardTitle: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg1,
+    fontWeight: fontWeight.medium,
+  },
+  cardPreview: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg4,
+    marginTop: 2,
+  },
   timerBadge: {
-    fontSize: 11,
-    color: '#4A90D9',
-    backgroundColor: '#E8F0FE',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: suitTint.club,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
+    borderRadius: radius.xs,
   },
-  addPlus: {
-    fontSize: 22,
-    color: '#4A90D9',
-    fontWeight: '700',
-    width: 24,
-    textAlign: 'center',
+  timerBadgeText: {
+    fontFamily: font.mono,
+    fontSize: fontSize.micro,
+    color: suit.club,
+    fontWeight: fontWeight.medium,
   },
   empty: {
+    fontFamily: font.text,
     textAlign: 'center',
-    color: '#aaa',
-    fontSize: 14,
-    marginTop: 30,
+    color: color.fg4,
+    fontSize: fontSize.bodyS,
+    marginTop: space[7],
   },
 });

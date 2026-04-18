@@ -19,6 +19,22 @@ import {
   saveDeck,
   generateId,
 } from '../data/storage';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  suit,
+} from '../design/tokens';
+import {
+  ChevronUpIcon,
+  ChevronDownIcon,
+  SkipIcon,
+  PlusIcon,
+} from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardEditor'>;
 
@@ -53,17 +69,16 @@ export default function CardEditorScreen({ route, navigation }: Props) {
     const card: Card = {
       id: cardId ?? generateId(),
       title: title.trim(),
-      content: blocks.filter(
-        (b) => b.value.trim().length > 0
-      ),
-      timer: timerSeconds ? { durationSeconds: parseInt(timerSeconds, 10) } : undefined,
+      content: blocks.filter((b) => b.value.trim().length > 0),
+      timer: timerSeconds
+        ? { durationSeconds: parseInt(timerSeconds, 10) }
+        : undefined,
       link: link.trim() || undefined,
       createdAt: Date.now(),
     };
 
     await saveCard(card);
 
-    // If new card and we have a deckId, add it to the deck
     if (isNew && deckId) {
       const deck = await getDeck(deckId);
       if (deck) {
@@ -131,23 +146,21 @@ export default function CardEditorScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Title */}
         <Text style={styles.label}>Title</Text>
         <TextInput
           style={styles.titleInput}
           value={title}
           onChangeText={setTitle}
           placeholder="Card title"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={color.fg4}
           autoFocus={isNew}
         />
 
-        {/* Content blocks */}
         <Text style={styles.label}>Content</Text>
         {blocks.map((block, i) => (
           <View key={i} style={styles.blockRow}>
             <Text style={styles.blockType}>
-              {block.type === 'text' ? 'T' : '\uD83D\uDDBC'}
+              {block.type === 'text' ? 'Aa' : 'IMG'}
             </Text>
             <TextInput
               style={styles.blockInput}
@@ -156,7 +169,7 @@ export default function CardEditorScreen({ route, navigation }: Props) {
               placeholder={
                 block.type === 'text' ? 'Text content...' : 'Image URL...'
               }
-              placeholderTextColor="#bbb"
+              placeholderTextColor={color.fg4}
               multiline={block.type === 'text'}
             />
             {block.type === 'image' && block.value ? (
@@ -170,71 +183,68 @@ export default function CardEditorScreen({ route, navigation }: Props) {
                 <Pressable
                   onPress={() => moveBlock(i, 'up')}
                   disabled={i === 0}
-                  style={styles.reorderBtn}
+                  hitSlop={4}
                 >
-                  <Text
-                    style={[
-                      styles.reorderArrow,
-                      i === 0 && styles.reorderDisabled,
-                    ]}
-                  >
-                    {'\u25B2'}
-                  </Text>
+                  <ChevronUpIcon
+                    size={14}
+                    color={i === 0 ? color.fgDisabled : color.link}
+                    strokeWidth={2.2}
+                  />
                 </Pressable>
                 <Pressable
                   onPress={() => moveBlock(i, 'down')}
                   disabled={i === blocks.length - 1}
-                  style={styles.reorderBtn}
+                  hitSlop={4}
                 >
-                  <Text
-                    style={[
-                      styles.reorderArrow,
-                      i === blocks.length - 1 && styles.reorderDisabled,
-                    ]}
-                  >
-                    {'\u25BC'}
-                  </Text>
+                  <ChevronDownIcon
+                    size={14}
+                    color={
+                      i === blocks.length - 1
+                        ? color.fgDisabled
+                        : color.link
+                    }
+                    strokeWidth={2.2}
+                  />
                 </Pressable>
               </View>
             )}
-            <Pressable onPress={() => removeBlock(i)}>
-              <Text style={styles.removeBlock}>{'\u00D7'}</Text>
+            <Pressable onPress={() => removeBlock(i)} hitSlop={4}>
+              <SkipIcon size={16} color={color.fg4} strokeWidth={2} />
             </Pressable>
           </View>
         ))}
 
         <View style={styles.addBlockRow}>
           <Pressable style={styles.addBlockBtn} onPress={addTextBlock}>
-            <Text style={styles.addBlockText}>+ Text</Text>
+            <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
+            <Text style={styles.addBlockText}>Text</Text>
           </Pressable>
           <Pressable style={styles.addBlockBtn} onPress={addImageBlock}>
-            <Text style={styles.addBlockText}>+ Image</Text>
+            <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
+            <Text style={styles.addBlockText}>Image</Text>
           </Pressable>
         </View>
 
-        {/* Timer */}
         <Text style={styles.label}>Timer (optional)</Text>
         <TextInput
           style={styles.input}
           value={timerSeconds}
           onChangeText={setTimerSeconds}
           placeholder="Duration in seconds"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={color.fg4}
           keyboardType="numeric"
         />
 
-        {/* Link */}
         <Text style={styles.label}>Link (optional)</Text>
         <TextInput
           style={styles.input}
           value={link}
           onChangeText={setLink}
           placeholder="https://..."
-          placeholderTextColor="#bbb"
+          placeholderTextColor={color.fg4}
           autoCapitalize="none"
         />
 
-        {/* Delete */}
         {!isNew && (
           <Pressable style={styles.deleteBtn} onPress={handleDelete}>
             <Text style={styles.deleteText}>Delete Card</Text>
@@ -246,109 +256,144 @@ export default function CardEditorScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
+  container: { flex: 1, backgroundColor: color.bgPage },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 12,
+    paddingHorizontal: space[5],
+    paddingTop: space[9],
+    paddingBottom: space[3],
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e0db',
+    borderBottomColor: color.hairline,
   },
-  cancel: { fontSize: 16, color: '#888' },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: '#333' },
-  save: { fontSize: 16, color: '#4A90D9', fontWeight: '600' },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 60 },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
+  cancel: {
+    fontFamily: font.text,
+    fontSize: fontSize.body,
+    color: color.fg3,
+  },
+  headerTitle: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 16,
-    marginBottom: 6,
+  },
+  save: {
+    fontFamily: font.text,
+    fontSize: fontSize.body,
+    color: color.link,
+    fontWeight: fontWeight.semibold,
+  },
+  scroll: { flex: 1 },
+  scrollContent: { padding: space[5], paddingBottom: space[9] },
+  label: {
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
+    textTransform: 'uppercase',
+    letterSpacing: letterSpacing.label,
+    marginTop: space[4],
+    marginBottom: space[2],
   },
   titleInput: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    fontFamily: font.display,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
     padding: 14,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#222',
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    fontFamily: font.text,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
     padding: 14,
-    fontSize: 15,
-    color: '#333',
+    fontSize: fontSize.ui,
+    color: color.fg1,
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   blockRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 6,
-    gap: 8,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
+    padding: space[3] - 2,
+    marginBottom: space[1] + 2,
+    gap: space[2],
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   blockType: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#aaa',
-    width: 24,
+    fontFamily: font.mono,
+    fontSize: fontSize.micro,
+    fontWeight: fontWeight.semibold,
+    color: color.fg4,
+    width: 28,
     textAlign: 'center',
-    paddingTop: 4,
+    paddingTop: 8,
   },
   blockInput: {
     flex: 1,
-    fontSize: 15,
-    color: '#333',
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg1,
     minHeight: 36,
   },
   imagePreview: {
     width: 40,
     height: 40,
-    borderRadius: 6,
-  },
-  removeBlock: {
-    fontSize: 20,
-    color: '#ccc',
-    paddingHorizontal: 4,
+    borderRadius: radius.s,
   },
   reorderBtns: {
     flexDirection: 'column',
     gap: 2,
     width: 18,
     alignItems: 'center',
+    paddingTop: 6,
   },
-  reorderBtn: { padding: 1 },
-  reorderArrow: { fontSize: 10, color: '#4A90D9' },
-  reorderDisabled: { color: '#ddd' },
   addBlockRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    gap: space[2],
+    marginTop: space[2],
   },
   addBlockBtn: {
     flex: 1,
-    padding: 12,
-    borderRadius: 10,
+    padding: space[3],
+    borderRadius: radius.m,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: color.hairline,
     borderStyle: 'dashed',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
-  addBlockText: { fontSize: 14, color: '#4A90D9', fontWeight: '600' },
+  addBlockText: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.link,
+    fontWeight: fontWeight.semibold,
+  },
   deleteBtn: {
-    marginTop: 32,
+    marginTop: space[7],
     padding: 14,
-    borderRadius: 10,
-    backgroundColor: '#FFF0F0',
+    borderRadius: radius.m,
+    backgroundColor: suit.heart + '12', // ~7% opacity red
     alignItems: 'center',
   },
-  deleteText: { fontSize: 15, color: '#F44336', fontWeight: '600' },
+  deleteText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: suit.heart,
+    fontWeight: fontWeight.semibold,
+  },
 });

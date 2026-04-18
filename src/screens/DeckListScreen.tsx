@@ -22,6 +22,24 @@ import {
   DECK_TEMPLATES,
   createDeckFromTemplate,
 } from '../data/seedData';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  shadow,
+  space,
+  suit,
+} from '../design/tokens';
+import {
+  PlusIcon,
+  SettingsIcon,
+  CheckIcon,
+  FixedOrderIcon,
+  RandomOrderIcon,
+} from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeckList'>;
 
@@ -52,23 +70,19 @@ export default function DeckListScreen({ navigation }: Props) {
     return { status: run.status, done, total: run.liveCardStates.length };
   };
 
-  // Tap deck → go straight to Play (create run if needed)
   const playDeck = async (deck: Deck) => {
     if (deck.cardRefs.length === 0) {
-      // No cards — go to detail instead
       navigation.navigate('DeckDetail', { deckId: deck.id });
       return;
     }
 
     let run = await getDailyRun(deck.id, today);
     if (run?.status === 'complete') {
-      // Already completed today — go to detail
       navigation.navigate('DeckDetail', { deckId: deck.id });
       return;
     }
 
     if (!run) {
-      // Create new run
       let orderedIds = deck.cardRefs
         .sort((a, b) => a.positionInDeck - b.positionInDeck)
         .map((r) => r.cardId);
@@ -105,12 +119,11 @@ export default function DeckListScreen({ navigation }: Props) {
   const addTemplate = async (tmplName: string) => {
     const tmpl = DECK_TEMPLATES.find((t) => t.name === tmplName);
     if (!tmpl) return;
-    const deck = await createDeckFromTemplate(tmpl);
+    await createDeckFromTemplate(tmpl);
     const allDecks = await getAllDecks();
     setDecks(allDecks);
   };
 
-  // Which templates haven't been added yet (by name match)
   const existingNames = new Set(decks.map((d) => d.name));
   const availableTemplates = DECK_TEMPLATES.filter(
     (t) => !existingNames.has(t.name)
@@ -119,7 +132,7 @@ export default function DeckListScreen({ navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4A90D9" />
+        <ActivityIndicator size="large" color={color.link} />
       </View>
     );
   }
@@ -132,8 +145,8 @@ export default function DeckListScreen({ navigation }: Props) {
           <Pressable onPress={() => navigation.navigate('Stats')}>
             <Text style={styles.topLink}>Stats</Text>
           </Pressable>
-          <Pressable onPress={() => navigation.navigate('Settings')}>
-            <Text style={styles.topLink}>{'\u2699'}</Text>
+          <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={8}>
+            <SettingsIcon size={22} color={color.link} />
           </Pressable>
         </View>
       </View>
@@ -144,6 +157,8 @@ export default function DeckListScreen({ navigation }: Props) {
         contentContainerStyle={styles.list}
         renderItem={({ item: deck }) => {
           const runInfo = getRunInfo(deck.id);
+          const OrderIcon =
+            deck.orderMode === 'random' ? RandomOrderIcon : FixedOrderIcon;
           return (
             <Pressable
               style={styles.row}
@@ -154,12 +169,13 @@ export default function DeckListScreen({ navigation }: Props) {
             >
               <View style={styles.rowLeft}>
                 <Text style={styles.deckName}>{deck.name}</Text>
-                <Text style={styles.deckMeta}>
-                  {deck.cardRefs.length} cards{' '}
-                  {deck.orderMode === 'random' ? '\uD83D\uDD00' : '\u2630'}
-                  {'  '}
+                <View style={styles.metaRow}>
+                  <Text style={styles.deckMeta}>
+                    {deck.cardRefs.length} cards
+                  </Text>
+                  <OrderIcon size={14} color={color.fg3} />
                   <Text style={styles.editHint}>hold to edit</Text>
-                </Text>
+                </View>
               </View>
               <View style={styles.rowRight}>
                 {runInfo && runInfo.status !== 'complete' && (
@@ -168,7 +184,7 @@ export default function DeckListScreen({ navigation }: Props) {
                   </Text>
                 )}
                 {runInfo?.status === 'complete' && (
-                  <Text style={styles.complete}>{'\u2713'}</Text>
+                  <CheckIcon size={20} color={suit.heart} strokeWidth={2.2} />
                 )}
               </View>
             </Pressable>
@@ -176,26 +192,39 @@ export default function DeckListScreen({ navigation }: Props) {
         }}
         ListFooterComponent={
           <>
-            {/* Template decks available to add */}
             {availableTemplates.length > 0 && (
               <View style={styles.templateSection}>
                 <Text style={styles.templateHeading}>Add a template</Text>
-                {availableTemplates.map((tmpl) => (
-                  <Pressable
-                    key={tmpl.name}
-                    style={styles.templateRow}
-                    onPress={() => addTemplate(tmpl.name)}
-                  >
-                    <View style={styles.rowLeft}>
-                      <Text style={styles.templateName}>{tmpl.name}</Text>
-                      <Text style={styles.templateMeta}>
-                        {tmpl.cards.length} cards {'\u2022'}{' '}
-                        {tmpl.orderMode === 'random' ? 'Random' : 'Fixed'}
-                      </Text>
-                    </View>
-                    <Text style={styles.addBtn}>+ Add</Text>
-                  </Pressable>
-                ))}
+                {availableTemplates.map((tmpl) => {
+                  const OrderIcon =
+                    tmpl.orderMode === 'random'
+                      ? RandomOrderIcon
+                      : FixedOrderIcon;
+                  return (
+                    <Pressable
+                      key={tmpl.name}
+                      style={styles.templateRow}
+                      onPress={() => addTemplate(tmpl.name)}
+                    >
+                      <View style={styles.rowLeft}>
+                        <Text style={styles.templateName}>{tmpl.name}</Text>
+                        <View style={styles.metaRow}>
+                          <Text style={styles.templateMeta}>
+                            {tmpl.cards.length} cards
+                          </Text>
+                          <OrderIcon size={13} color={color.fg4} />
+                          <Text style={styles.templateMeta}>
+                            {tmpl.orderMode === 'random' ? 'Random' : 'Fixed'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.addBtnRow}>
+                        <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
+                        <Text style={styles.addBtn}>Add</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
           </>
@@ -211,106 +240,162 @@ export default function DeckListScreen({ navigation }: Props) {
         style={styles.fab}
         onPress={() => navigation.navigate('NewDeck')}
       >
-        <Text style={styles.fabText}>+</Text>
+        <PlusIcon size={28} color="#fff" strokeWidth={2.2} />
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
+  container: { flex: 1, backgroundColor: color.bgPage },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F0EB',
+    backgroundColor: color.bgPage,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 12,
+    paddingHorizontal: space[5],
+    paddingTop: space[9],
+    paddingBottom: space[3],
   },
   heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#222',
+    fontFamily: font.display,
+    fontSize: fontSize.displayM,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
   },
-  topActions: { flexDirection: 'row', gap: 16, paddingBottom: 4 },
-  topLink: { fontSize: 16, color: '#4A90D9', fontWeight: '500' },
-  list: { paddingHorizontal: 16, paddingBottom: 100 },
+  topActions: {
+    flexDirection: 'row',
+    gap: space[4],
+    alignItems: 'center',
+    paddingBottom: space[1],
+  },
+  topLink: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+    fontWeight: fontWeight.medium,
+  },
+  list: { paddingHorizontal: space[4], paddingBottom: 120 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    boxShadow: '0px 1px 3px rgba(0,0,0,0.08)',
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.l,
+    padding: space[4],
+    marginBottom: space[2] + 2,
+    borderWidth: 1,
+    borderColor: color.cardStroke,
+    ...shadow.card,
   },
   rowLeft: { flex: 1 },
-  deckName: { fontSize: 17, fontWeight: '600', color: '#222' },
-  deckMeta: { fontSize: 13, color: '#888', marginTop: 2 },
-  editHint: { fontSize: 11, color: '#bbb', fontStyle: 'italic' },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inProgress: {
-    fontSize: 13,
-    color: '#FF9800',
-    fontWeight: '600',
+  deckName: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
   },
-  complete: { fontSize: 18, color: '#4CAF50', fontWeight: '700' },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    marginTop: space[1] + 2,
+  },
+  deckMeta: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
+  },
+  editHint: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    fontStyle: 'italic',
+    marginLeft: space[2],
+  },
+  rowRight: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  inProgress: {
+    fontFamily: font.mono,
+    fontSize: fontSize.bodyS,
+    color: suit.diamond,
+    fontWeight: fontWeight.semibold,
+  },
   empty: {
     textAlign: 'center',
-    color: '#999',
-    fontSize: 16,
-    marginTop: 40,
+    color: color.fg4,
+    fontSize: fontSize.body,
+    marginTop: space[8],
+    fontFamily: font.text,
   },
   // Template section
   templateSection: {
-    marginTop: 20,
-    paddingTop: 16,
+    marginTop: space[5],
+    paddingTop: space[4],
     borderTopWidth: 1,
-    borderTopColor: '#e5e0db',
+    borderTopColor: color.hairline,
   },
   templateHeading: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    letterSpacing: letterSpacing.label,
+    marginBottom: space[3],
   },
   templateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
+    backgroundColor: color.bgSurface,
+    borderRadius: radius.l,
+    padding: space[3] + 2,
+    marginBottom: space[2],
     borderWidth: 1,
-    borderColor: '#e5e0db',
+    borderColor: color.hairline,
     borderStyle: 'dashed',
   },
-  templateName: { fontSize: 16, fontWeight: '600', color: '#555' },
-  templateMeta: { fontSize: 12, color: '#aaa', marginTop: 2 },
+  templateName: {
+    fontFamily: font.display,
+    fontSize: fontSize.bodyL,
+    fontWeight: fontWeight.regular,
+    color: color.fg2,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+  },
+  templateMeta: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg4,
+  },
+  addBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   addBtn: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A90D9',
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    fontWeight: fontWeight.semibold,
+    color: color.link,
   },
   fab: {
     position: 'absolute',
-    bottom: 32,
-    right: 24,
+    bottom: space[7],
+    right: space[6],
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#4A90D9',
+    borderRadius: radius.full,
+    backgroundColor: suit.heart,
     justifyContent: 'center',
     alignItems: 'center',
-    boxShadow: '0px 4px 12px rgba(0,0,0,0.2)',
+    ...shadow.fab,
   },
-  fabText: { fontSize: 28, color: '#fff', marginTop: -2 },
 });

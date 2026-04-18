@@ -1,16 +1,15 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   SharedValue,
 } from 'react-native-reanimated';
 import type { CardData } from './sampleCards';
 import { CARD_WIDTH, CARD_HEIGHT } from './cardDimensions';
+import { color, radius, shadow, paper } from './design/tokens';
 
 interface CardStackProps {
   cards: CardData[];
-  /** Shared value that jiggles during shuffle animation */
   shuffleJitter: SharedValue<number>;
 }
 
@@ -20,22 +19,21 @@ function seededRandom(id: string, salt: number): number {
   for (let i = 0; i < id.length; i++) {
     h = (h * 31 + id.charCodeAt(i) + salt) | 0;
   }
-  return ((h % 200) - 100) / 100; // -1..1
+  return ((h % 200) - 100) / 100;
 }
 
 const MAX_VISIBLE_LAYERS = 6;
 
 export default function CardStack({ cards, shuffleJitter }: CardStackProps) {
-  // Show up to 6 layers behind the top card (index 0 is top, skip it)
   const stackCards = cards.slice(1, MAX_VISIBLE_LAYERS + 1);
 
   return (
     <>
       {stackCards.map((card, i) => {
-        const layerIndex = i + 1; // 1-based depth
-        const rotation = seededRandom(card.id, 0) * 2; // ±2 degrees
-        const offsetX = seededRandom(card.id, 1) * 2; // ±2px
-        const offsetY = seededRandom(card.id, 2) * 2; // ±2px
+        const layerIndex = i + 1;
+        const rotation = seededRandom(card.id, 0) * 2;
+        const offsetX = seededRandom(card.id, 1) * 2;
+        const offsetY = seededRandom(card.id, 2) * 2;
 
         return (
           <StackLayer
@@ -60,6 +58,16 @@ interface StackLayerProps {
   shuffleJitter: SharedValue<number>;
 }
 
+// Paper-tinted stack layers — warm, matching the design system
+const STACK_COLORS = [
+  paper[0], // top of stack
+  '#F7F1E6',
+  paper[1],
+  '#EFE8DB',
+  paper[2],
+  '#E6DDCD',
+];
+
 function StackLayer({
   layerIndex,
   rotation,
@@ -79,14 +87,13 @@ function StackLayer({
     };
   });
 
+  const bg = STACK_COLORS[Math.min(layerIndex - 1, STACK_COLORS.length - 1)];
+
   return (
     <Animated.View
       style={[
         styles.stackCard,
-        {
-          // Deeper cards are slightly darker
-          backgroundColor: `hsl(0, 0%, ${Math.max(88 - layerIndex * 2, 75)}%)`,
-        },
+        { backgroundColor: bg },
         animatedStyle,
       ]}
     />
@@ -98,7 +105,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 16,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+    borderRadius: radius.l,
+    borderWidth: 1,
+    borderColor: color.cardStroke,
+    ...shadow.flat,
   },
 });

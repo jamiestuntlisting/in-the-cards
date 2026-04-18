@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 80">
+  
+  
+  <g transform="translate(8 8)">
+    <rect x="0" y="0" width="48" height="64" rx="6" ry="6" fill="#FAF6EF" stroke="#1A1714" stroke-width="1.5" transform="rotate(-6 24 32)"></rect>
+    <path class="red" d="M24 28 C 24 22, 12 22, 12 32 C 12 42, 24 50, 24 54 C 24 50, 36 42, 36 32 C 36 22, 24 22, 24 28 Z" transform="rotate(-6 24 32)"></path>
+  </g>
+  <text x="72" y="52" class="display ink" font-size="36">In the</text>
+  <text x="188" y="52" class="display red" font-size="36">Cards</text>
+</svg>

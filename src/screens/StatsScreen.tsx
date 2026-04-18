@@ -26,6 +26,25 @@ import {
   computeTimeOfDay,
   computeBestDayOfWeek,
 } from '../data/stats';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  suit,
+} from '../design/tokens';
+import {
+  ChevronLeftIcon,
+  CheckIcon,
+  SkipIcon,
+  DeferIcon,
+  ShuffleIcon,
+  SpadeIcon,
+  HeartIcon,
+} from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Stats'>;
 
@@ -59,14 +78,17 @@ export default function StatsScreen({ navigation }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([getAllLogs(), getAllCards(), getAllDecks(), getSettings()]).then(
-        ([l, c, d, s]) => {
-          setLogs(l);
-          setCards(c);
-          setDecks(d);
-          setSettings(s);
-        }
-      );
+      Promise.all([
+        getAllLogs(),
+        getAllCards(),
+        getAllDecks(),
+        getSettings(),
+      ]).then(([l, c, d, s]) => {
+        setLogs(l);
+        setCards(c);
+        setDecks(d);
+        setSettings(s);
+      });
     }, [])
   );
 
@@ -78,7 +100,7 @@ export default function StatsScreen({ navigation }: Props) {
   const mostConsistent = findMostConsistentCard(perCard);
   const deckStats = computeDeckLevelStats(filtered, decks);
   const timeOfDay = computeTimeOfDay(filtered);
-  const bestDow = computeBestDayOfWeek(logs); // all-time
+  const bestDow = computeBestDayOfWeek(logs);
 
   const show = (key: string) =>
     !settings || settings.preferredStatsDisplay.includes(key);
@@ -94,25 +116,38 @@ export default function StatsScreen({ navigation }: Props) {
       minute: '2-digit',
     });
 
-  const statusEmoji: Record<string, string> = {
-    complete: '\u2713',
-    skipped: '\u2717',
-    deferred: '\u21BB',
-    shuffled: '\u2261',
+  const statusIcon = (status: string) => {
+    const iconSize = 14;
+    if (status === 'complete')
+      return <CheckIcon size={iconSize} color={suit.heart} strokeWidth={2.2} />;
+    if (status === 'skipped')
+      return <SkipIcon size={iconSize} color={suit.spade} strokeWidth={2.2} />;
+    if (status === 'deferred')
+      return <DeferIcon size={iconSize} color={suit.diamond} strokeWidth={2.2} />;
+    if (status === 'shuffled')
+      return <ShuffleIcon size={iconSize} color={suit.club} strokeWidth={2.2} />;
+    return null;
   };
 
   const cardTitleById = (id: string) =>
     cards.find((c) => c.id === id)?.title ?? id.slice(0, 8);
 
-  // Time-of-day total
   const todTotal =
-    timeOfDay.morning + timeOfDay.afternoon + timeOfDay.evening + timeOfDay.lateNight;
+    timeOfDay.morning +
+    timeOfDay.afternoon +
+    timeOfDay.evening +
+    timeOfDay.lateNight;
 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>{'\u2039'} Back</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          hitSlop={8}
+        >
+          <ChevronLeftIcon size={22} color={color.link} strokeWidth={2.2} />
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Pressable onPress={() => navigation.navigate('Goals')}>
           <Text style={styles.goalsLink}>Goals</Text>
@@ -121,7 +156,6 @@ export default function StatsScreen({ navigation }: Props) {
 
       <Text style={styles.heading}>Stats</Text>
 
-      {/* Period toggle */}
       <View style={styles.periodRow}>
         {(['day', 'week', 'month', 'year'] as Period[]).map((p) => (
           <Pressable
@@ -142,7 +176,6 @@ export default function StatsScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Completion % */}
         {show('completion_pct') && (
           <View style={styles.bigStat}>
             <Text style={styles.bigNumber}>{summary.completionPct}%</Text>
@@ -150,50 +183,46 @@ export default function StatsScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* Core counts */}
         <View style={styles.grid}>
-          <StatBox label="Completed" value={summary.completed} color="#4CAF50" />
-          <StatBox label="Skipped" value={summary.skipped} color="#F44336" />
-          <StatBox label="Deferred" value={summary.deferred} color="#FF9800" />
-          <StatBox label="Shuffled" value={summary.shuffled} color="#9C27B0" />
+          <StatBox label="Completed" value={summary.completed} color={suit.heart} />
+          <StatBox label="Skipped" value={summary.skipped} color={suit.spade} />
+          <StatBox label="Deferred" value={summary.deferred} color={suit.diamond} />
+          <StatBox label="Shuffled" value={summary.shuffled} color={suit.club} />
         </View>
 
-        {/* Streaks + total */}
         <View style={styles.grid}>
           {show('current_streak') && (
             <StatBox
               label="Current Streak"
               value={`${summary.currentStreak}d`}
-              color="#FF5722"
+              color={suit.heart}
             />
           )}
           {show('longest_streak') && (
             <StatBox
               label="Longest Streak"
               value={`${summary.longestStreak}d`}
-              color="#795548"
+              color={color.fg2}
             />
           )}
           {show('total_swipes') && (
             <StatBox
               label="Total Swipes"
               value={summary.totalSwipes}
-              color="#4A90D9"
+              color={color.link}
             />
           )}
         </View>
 
-        {/* Nemesis + Most Consistent */}
         {(show('nemesis_card') || show('most_consistent_card')) &&
           (nemesis || mostConsistent) && (
             <>
               <Text style={styles.sectionTitle}>Card Insights</Text>
               {show('nemesis_card') && nemesis && (
                 <View style={styles.insightRow}>
-                  <Text style={styles.insightLabel}>
-                    {'\uD83D\uDC7F'} Your Nemesis
-                  </Text>
+                  <SpadeIcon size={20} color={suit.spade} strokeWidth={1.75} />
                   <View style={styles.insightBody}>
+                    <Text style={styles.insightLabel}>Your Nemesis</Text>
                     <Text style={styles.insightTitle} numberOfLines={1}>
                       {nemesis.title}
                     </Text>
@@ -205,10 +234,9 @@ export default function StatsScreen({ navigation }: Props) {
               )}
               {show('most_consistent_card') && mostConsistent && (
                 <View style={styles.insightRow}>
-                  <Text style={styles.insightLabel}>
-                    {'\u2B50'} Most Consistent
-                  </Text>
+                  <HeartIcon size={20} color={suit.heart} strokeWidth={1.75} />
                   <View style={styles.insightBody}>
+                    <Text style={styles.insightLabel}>Most Consistent</Text>
                     <Text style={styles.insightTitle} numberOfLines={1}>
                       {mostConsistent.title}
                     </Text>
@@ -221,7 +249,6 @@ export default function StatsScreen({ navigation }: Props) {
             </>
           )}
 
-        {/* Per-card breakdown */}
         {show('per_card_trends') && perCard.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Per-Card Breakdown</Text>
@@ -236,34 +263,25 @@ export default function StatsScreen({ navigation }: Props) {
                   <View style={styles.cardStatBar}>
                     {s.complete > 0 && (
                       <View
-                        style={{
-                          flex: s.complete,
-                          backgroundColor: '#4CAF50',
-                        }}
+                        style={{ flex: s.complete, backgroundColor: suit.heart }}
                       />
                     )}
                     {s.skipped > 0 && (
                       <View
-                        style={{
-                          flex: s.skipped,
-                          backgroundColor: '#F44336',
-                        }}
+                        style={{ flex: s.skipped, backgroundColor: suit.spade }}
                       />
                     )}
                     {s.deferred > 0 && (
                       <View
                         style={{
                           flex: s.deferred,
-                          backgroundColor: '#FF9800',
+                          backgroundColor: suit.diamond,
                         }}
                       />
                     )}
                     {s.shuffled > 0 && (
                       <View
-                        style={{
-                          flex: s.shuffled,
-                          backgroundColor: '#9C27B0',
-                        }}
+                        style={{ flex: s.shuffled, backgroundColor: suit.club }}
                       />
                     )}
                   </View>
@@ -273,7 +291,6 @@ export default function StatsScreen({ navigation }: Props) {
           </>
         )}
 
-        {/* Deck-level completion */}
         {show('deck_completion_rate') && deckStats.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Deck Completion</Text>
@@ -289,41 +306,34 @@ export default function StatsScreen({ navigation }: Props) {
           </>
         )}
 
-        {/* Time of day */}
         {show('time_of_day') && todTotal > 0 && (
           <>
             <Text style={styles.sectionTitle}>When You Play</Text>
             <View style={styles.todRow}>
-              <TodBar label="Morning" count={timeOfDay.morning} total={todTotal} color="#FFB74D" />
-              <TodBar label="Afternoon" count={timeOfDay.afternoon} total={todTotal} color="#4FC3F7" />
-              <TodBar label="Evening" count={timeOfDay.evening} total={todTotal} color="#9575CD" />
-              <TodBar label="Late Night" count={timeOfDay.lateNight} total={todTotal} color="#455A64" />
+              <TodBar label="Morning" count={timeOfDay.morning} total={todTotal} color={suit.diamond} />
+              <TodBar label="Afternoon" count={timeOfDay.afternoon} total={todTotal} color={suit.club} />
+              <TodBar label="Evening" count={timeOfDay.evening} total={todTotal} color={suit.heart} />
+              <TodBar label="Late Night" count={timeOfDay.lateNight} total={todTotal} color={suit.spade} />
             </View>
           </>
         )}
 
-        {/* Best day of week */}
         {show('best_day_of_week') && bestDow && (
           <View style={styles.bestDowRow}>
-            <Text style={styles.bestDowLabel}>
-              {'\uD83C\uDFC6'} Best Day of Week
-            </Text>
+            <Text style={styles.bestDowLabel}>Best Day of Week</Text>
             <Text style={styles.bestDowValue}>
               {bestDow.day} ({bestDow.rate}%)
             </Text>
           </View>
         )}
 
-        {/* Today's log */}
         {show('today_log') && period === 'day' && todayLogs.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Today's Log</Text>
             {todayLogs.map((log) => (
               <View key={log.id} style={styles.logRow}>
                 <Text style={styles.logTime}>{formatTime(log.timestamp)}</Text>
-                <Text style={styles.logStatus}>
-                  {statusEmoji[log.status]}
-                </Text>
+                <View style={styles.logStatus}>{statusIcon(log.status)}</View>
                 <Text style={styles.logCard} numberOfLines={1}>
                   {cardTitleById(log.cardId)}
                 </Text>
@@ -343,7 +353,7 @@ export default function StatsScreen({ navigation }: Props) {
 function StatBox({
   label,
   value,
-  color,
+  color: valueColor,
 }: {
   label: string;
   value: number | string;
@@ -351,7 +361,7 @@ function StatBox({
 }) {
   return (
     <View style={styles.statBox}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -361,7 +371,7 @@ function TodBar({
   label,
   count,
   total,
-  color,
+  color: barColor,
 }: {
   label: string;
   count: number;
@@ -374,7 +384,7 @@ function TodBar({
       <View
         style={[
           styles.todFill,
-          { width: `${pct}%`, backgroundColor: color },
+          { width: `${pct}%`, backgroundColor: barColor },
         ]}
       />
       <View style={styles.todTextRow}>
@@ -386,123 +396,210 @@ function TodBar({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
+  container: { flex: 1, backgroundColor: color.bgPage },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 56,
+    alignItems: 'center',
+    paddingHorizontal: space[5],
+    paddingTop: space[9],
   },
-  back: { fontSize: 17, color: '#4A90D9' },
-  goalsLink: { fontSize: 16, color: '#4A90D9', fontWeight: '500' },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  backText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+  },
+  goalsLink: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+    fontWeight: fontWeight.medium,
+  },
   heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#222',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    fontFamily: font.display,
+    fontSize: fontSize.displayM,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+    paddingHorizontal: space[5],
+    paddingBottom: space[3],
   },
   periodRow: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 16,
+    paddingHorizontal: space[5],
+    gap: space[2],
+    marginBottom: space[4],
   },
   periodBtn: {
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#e8e3de',
+    borderRadius: radius.full,
+    backgroundColor: color.bgSurface,
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
-  periodActive: { backgroundColor: '#4A90D9' },
-  periodText: { fontSize: 14, color: '#666', fontWeight: '500' },
+  periodActive: {
+    backgroundColor: suit.heart,
+    borderColor: suit.heart,
+  },
+  periodText: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
+    fontWeight: fontWeight.medium,
+  },
   periodTextActive: { color: '#fff' },
-  scroll: { padding: 20, paddingBottom: 60 },
-  bigStat: { alignItems: 'center', marginBottom: 20 },
-  bigNumber: { fontSize: 56, fontWeight: '700', color: '#222' },
-  bigLabel: { fontSize: 14, color: '#888' },
-  grid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  scroll: { padding: space[5], paddingBottom: space[9] },
+  bigStat: { alignItems: 'center', marginBottom: space[5] },
+  bigNumber: {
+    fontFamily: font.mono,
+    fontSize: fontSize.displayXl,
+    fontWeight: fontWeight.semibold,
+    color: color.fg1,
+  },
+  bigLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
+  },
+  grid: { flexDirection: 'row', gap: space[2] + 2, marginBottom: space[2] + 2 },
   statBox: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
     padding: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
-  statValue: { fontSize: 24, fontWeight: '700' },
-  statLabel: { fontSize: 12, color: '#888', marginTop: 2 },
+  statValue: {
+    fontFamily: font.mono,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.semibold,
+  },
+  statLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    marginTop: 2,
+    textAlign: 'center',
+  },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 20,
-    marginBottom: 8,
+    letterSpacing: letterSpacing.label,
+    marginTop: space[5],
+    marginBottom: space[2],
   },
   // Insights
   insightRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
     padding: 14,
-    marginBottom: 8,
+    marginBottom: space[2],
     alignItems: 'center',
-    gap: 12,
-  },
-  insightLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
-    width: 120,
+    gap: space[3],
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   insightBody: { flex: 1 },
-  insightTitle: { fontSize: 15, fontWeight: '600', color: '#333' },
-  insightDetail: { fontSize: 12, color: '#999', marginTop: 2 },
+  insightLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg4,
+    textTransform: 'uppercase',
+    letterSpacing: letterSpacing.label,
+    marginBottom: 2,
+  },
+  insightTitle: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.semibold,
+    color: color.fg1,
+  },
+  insightDetail: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
+    marginTop: 2,
+  },
   // Per-card
   cardStatRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 4,
-    gap: 10,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.s,
+    padding: space[2] + 2,
+    marginBottom: space[1],
+    gap: space[2] + 2,
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
-  cardStatTitle: { flex: 1, fontSize: 14, color: '#333' },
+  cardStatTitle: {
+    flex: 1,
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg1,
+  },
   cardStatBar: {
     flex: 2,
     flexDirection: 'row',
     height: 8,
-    borderRadius: 4,
+    borderRadius: radius.xs,
     overflow: 'hidden',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: color.hairline,
   },
   cardStatTotal: {
-    fontSize: 12,
-    color: '#888',
+    fontFamily: font.mono,
+    fontSize: fontSize.micro,
+    color: color.fg3,
     width: 24,
     textAlign: 'right',
-    fontVariant: ['tabular-nums'],
   },
-  // Deck stat
+  // Deck stats
   deckStatRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 4,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.s,
+    padding: space[3],
+    marginBottom: space[1],
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
-  deckStatName: { flex: 1, fontSize: 15, color: '#333' },
-  deckStatRate: { fontSize: 16, fontWeight: '700', color: '#4A90D9', width: 50 },
-  deckStatMeta: { fontSize: 12, color: '#888', width: 70, textAlign: 'right' },
-  // Time-of-day
-  todRow: { gap: 6 },
+  deckStatName: {
+    flex: 1,
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg1,
+  },
+  deckStatRate: {
+    fontFamily: font.mono,
+    fontSize: fontSize.body,
+    fontWeight: fontWeight.semibold,
+    color: suit.heart,
+    width: 52,
+  },
+  deckStatMeta: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    width: 70,
+    textAlign: 'right',
+  },
+  // ToD
+  todRow: { gap: space[1] + 2 },
   todBar: {
     height: 28,
-    backgroundColor: '#f0ebe6',
-    borderRadius: 6,
+    backgroundColor: color.bgSunken,
+    borderRadius: radius.s,
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'center',
@@ -512,44 +609,82 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     bottom: 0,
+    opacity: 0.7,
   },
   todTextRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    paddingHorizontal: space[3] - 2,
     zIndex: 1,
   },
-  todLabel: { fontSize: 13, color: '#333', fontWeight: '500' },
-  todCount: { fontSize: 13, color: '#333', fontWeight: '600' },
+  todLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg1,
+    fontWeight: fontWeight.medium,
+  },
+  todCount: {
+    fontFamily: font.mono,
+    fontSize: fontSize.bodyS,
+    color: color.fg1,
+    fontWeight: fontWeight.semibold,
+  },
   // Best DoW
   bestDowRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
     padding: 14,
-    marginTop: 10,
+    marginTop: space[3],
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
-  bestDowLabel: { fontSize: 14, color: '#888', fontWeight: '500' },
-  bestDowValue: { fontSize: 16, color: '#333', fontWeight: '700' },
+  bestDowLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
+    fontWeight: fontWeight.medium,
+  },
+  bestDowValue: {
+    fontFamily: font.display,
+    fontSize: fontSize.bodyL,
+    color: color.fg1,
+    fontWeight: fontWeight.regular,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+  },
   // Today's log
   logRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 4,
-    gap: 10,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.s,
+    padding: space[2] + 2,
+    marginBottom: space[1],
+    gap: space[2] + 2,
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
-  logTime: { fontSize: 13, color: '#999', width: 60 },
-  logStatus: { fontSize: 16, width: 20, textAlign: 'center' },
-  logCard: { flex: 1, fontSize: 14, color: '#555' },
+  logTime: {
+    fontFamily: font.mono,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    width: 52,
+  },
+  logStatus: { width: 20, alignItems: 'center' },
+  logCard: {
+    flex: 1,
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg2,
+  },
   empty: {
+    fontFamily: font.text,
     textAlign: 'center',
-    color: '#aaa',
-    fontSize: 14,
-    marginTop: 40,
+    color: color.fg4,
+    fontSize: fontSize.bodyS,
+    marginTop: space[8],
   },
 });

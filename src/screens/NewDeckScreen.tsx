@@ -16,6 +16,17 @@ import {
   createDeckFromTemplate,
   type DeckTemplate,
 } from '../data/seedData';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  suit,
+} from '../design/tokens';
+import { FixedOrderIcon, RandomOrderIcon } from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NewDeck'>;
 
@@ -56,27 +67,34 @@ export default function NewDeckScreen({ navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Templates */}
         <Text style={styles.sectionTitle}>Start from template</Text>
-        {DECK_TEMPLATES.map((tmpl) => (
-          <Pressable
-            key={tmpl.name}
-            style={styles.templateCard}
-            onPress={() => createFromTemplate(tmpl)}
-          >
-            <Text style={styles.templateName}>{tmpl.name}</Text>
-            <Text style={styles.templateMeta}>
-              {tmpl.cards.length} cards {'\u2022'}{' '}
-              {tmpl.orderMode === 'random' ? 'Random' : 'Fixed'}
-            </Text>
-            <Text style={styles.templatePreview} numberOfLines={2}>
-              {tmpl.cards.map((c) => c.title).join(' \u2022 ')}
-            </Text>
-          </Pressable>
-        ))}
+        {DECK_TEMPLATES.map((tmpl) => {
+          const OrderIcon =
+            tmpl.orderMode === 'random' ? RandomOrderIcon : FixedOrderIcon;
+          return (
+            <Pressable
+              key={tmpl.name}
+              style={styles.templateCard}
+              onPress={() => createFromTemplate(tmpl)}
+            >
+              <Text style={styles.templateName}>{tmpl.name}</Text>
+              <View style={styles.templateMetaRow}>
+                <Text style={styles.templateMeta}>
+                  {tmpl.cards.length} cards
+                </Text>
+                <OrderIcon size={13} color={color.fg4} />
+                <Text style={styles.templateMeta}>
+                  {tmpl.orderMode === 'random' ? 'Random' : 'Fixed'}
+                </Text>
+              </View>
+              <Text style={styles.templatePreview} numberOfLines={2}>
+                {tmpl.cards.map((c) => c.title).join('  \u2022  ')}
+              </Text>
+            </Pressable>
+          );
+        })}
 
-        {/* Blank deck */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
+        <Text style={[styles.sectionTitle, { marginTop: space[7] }]}>
           Or create blank
         </Text>
         <View style={styles.blankForm}>
@@ -85,7 +103,7 @@ export default function NewDeckScreen({ navigation }: Props) {
             value={name}
             onChangeText={setName}
             placeholder="Deck name"
-            placeholderTextColor="#bbb"
+            placeholderTextColor={color.fg4}
           />
 
           <View style={styles.toggleRow}>
@@ -93,7 +111,8 @@ export default function NewDeckScreen({ navigation }: Props) {
             <Switch
               value={isRandom}
               onValueChange={setIsRandom}
-              trackColor={{ true: '#4A90D9', false: '#ddd' }}
+              trackColor={{ true: suit.heart, false: color.hairline }}
+              thumbColor="#fff"
             />
           </View>
 
@@ -114,74 +133,116 @@ export default function NewDeckScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
+  container: { flex: 1, backgroundColor: color.bgPage },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 12,
+    paddingHorizontal: space[5],
+    paddingTop: space[9],
+    paddingBottom: space[3],
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e0db',
+    borderBottomColor: color.hairline,
   },
-  cancel: { fontSize: 16, color: '#888' },
-  headerTitle: { fontSize: 17, fontWeight: '600', color: '#333' },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 60 },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
+  cancel: {
+    fontFamily: font.text,
+    fontSize: fontSize.body,
+    color: color.fg3,
+  },
+  headerTitle: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+  },
+  scroll: { flex: 1 },
+  scrollContent: { padding: space[5], paddingBottom: space[9] },
+  sectionTitle: {
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
+    textTransform: 'uppercase',
+    letterSpacing: letterSpacing.label,
+    marginBottom: space[3],
   },
   templateCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    boxShadow: '0px 1px 3px rgba(0,0,0,0.06)',
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.l,
+    padding: space[4],
+    marginBottom: space[2] + 2,
+    borderWidth: 1,
+    borderColor: color.cardStroke,
   },
-  templateName: { fontSize: 18, fontWeight: '600', color: '#222' },
+  templateName: {
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+  },
+  templateMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+    marginTop: space[1] + 2,
+    marginBottom: space[2],
+  },
   templateMeta: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 2,
-    marginBottom: 6,
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
   },
   templatePreview: {
-    fontSize: 13,
-    color: '#aaa',
-    lineHeight: 18,
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg4,
+    lineHeight: fontSize.bodyS * 1.5,
   },
   blankForm: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.l,
+    padding: space[4],
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   nameInput: {
-    fontSize: 17,
-    padding: 12,
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    padding: space[3],
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    color: '#222',
+    borderBottomColor: color.hairline,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: space[3],
   },
-  toggleLabel: { fontSize: 15, color: '#555' },
+  toggleLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg2,
+  },
   createBtn: {
-    backgroundColor: '#4A90D9',
-    borderRadius: 10,
+    backgroundColor: suit.heart,
+    borderRadius: radius.m,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: space[2],
   },
   createBtnDisabled: { opacity: 0.4 },
-  createText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  createText: {
+    fontFamily: font.text,
+    color: '#fff',
+    fontSize: fontSize.body,
+    fontWeight: fontWeight.semibold,
+  },
 });

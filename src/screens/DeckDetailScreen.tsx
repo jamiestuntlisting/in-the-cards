@@ -21,7 +21,6 @@ import {
   getAllDailyRuns,
   saveDailyRun,
   todayString,
-  generateId,
 } from '../data/storage';
 import {
   requestNotificationPermission,
@@ -29,6 +28,34 @@ import {
   cancelTrigger,
 } from '../data/notifications';
 import TimeInput from '../components/TimeInput';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  suit,
+  suitTint,
+  signal,
+} from '../design/tokens';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  CheckIcon,
+  SkipIcon,
+  DeferIcon,
+  ShuffleIcon,
+  FixedOrderIcon,
+  RandomOrderIcon,
+  PlayIcon,
+  PlusIcon,
+  SkipIcon as XIcon,
+  TimerIcon,
+} from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeckDetail'>;
 
@@ -46,7 +73,6 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
       return;
     }
     setDeck(d);
-    // Order cards by deck position
     const ordered = d.cardRefs
       .sort((a, b) => a.positionInDeck - b.positionInDeck)
       .map((ref) => allCards.find((c) => c.id === ref.cardId))
@@ -79,7 +105,9 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
     if (toIndex < 0 || toIndex >= deck.cardRefs.length) return;
 
-    const refs = [...deck.cardRefs].sort((a, b) => a.positionInDeck - b.positionInDeck);
+    const refs = [...deck.cardRefs].sort(
+      (a, b) => a.positionInDeck - b.positionInDeck
+    );
     [refs[fromIndex], refs[toIndex]] = [refs[toIndex], refs[fromIndex]];
     refs.forEach((r, i) => (r.positionInDeck = i));
 
@@ -87,7 +115,6 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     await saveDeck(updated);
     setDeck(updated);
 
-    // Update cards display order
     const allCards = await getAllCards();
     const ordered = refs
       .map((ref) => allCards.find((c) => c.id === ref.cardId))
@@ -101,18 +128,15 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     let run = await getDailyRun(deck.id, today);
 
     if (!run) {
-      // Build card order
       let orderedIds = deck.cardRefs
         .sort((a, b) => a.positionInDeck - b.positionInDeck)
         .map((r) => r.cardId);
 
       if (deck.orderMode === 'random') {
-        // Fisher-Yates shuffle
         for (let i = orderedIds.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [orderedIds[i], orderedIds[j]] = [orderedIds[j], orderedIds[i]];
         }
-        // Anti-repeat: if first card is same as yesterday's first, swap it
         const allRuns = await getAllDailyRuns();
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -126,9 +150,12 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           orderedIds.length > 1 &&
           orderedIds[0] === yRun.liveCardStates[0].cardId
         ) {
-          // Swap first with a random other position
-          const swapIdx = 1 + Math.floor(Math.random() * (orderedIds.length - 1));
-          [orderedIds[0], orderedIds[swapIdx]] = [orderedIds[swapIdx], orderedIds[0]];
+          const swapIdx =
+            1 + Math.floor(Math.random() * (orderedIds.length - 1));
+          [orderedIds[0], orderedIds[swapIdx]] = [
+            orderedIds[swapIdx],
+            orderedIds[0],
+          ];
         }
       }
 
@@ -161,26 +188,26 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     navigation.goBack();
   };
 
-  const getStatusIcon = (cardId: string) => {
+  const renderStatusIcon = (cardId: string) => {
     if (!todayRun) return null;
     const state = todayRun.liveCardStates.find((s) => s.cardId === cardId);
     if (!state || state.status === 'pending') return null;
     switch (state.status) {
       case 'complete':
-        return '\u2713';
+        return <CheckIcon size={16} color={suit.heart} strokeWidth={2.2} />;
       case 'skipped':
-        return '\u2717';
+        return <SkipIcon size={16} color={suit.spade} strokeWidth={2.2} />;
       case 'deferred':
-        return '\u21BB';
+        return <DeferIcon size={16} color={suit.diamond} strokeWidth={2.2} />;
       case 'shuffled':
-        return '\u2261';
+        return <ShuffleIcon size={16} color={suit.club} strokeWidth={2.2} />;
     }
   };
 
   if (loading || !deck) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4A90D9" />
+        <ActivityIndicator size="large" color={color.link} />
       </View>
     );
   }
@@ -192,11 +219,19 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
       ? 'Continue'
       : 'Play';
 
+  const OrderIcon =
+    deck.orderMode === 'random' ? RandomOrderIcon : FixedOrderIcon;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>{'\u2039'} Back</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          hitSlop={8}
+        >
+          <ChevronLeftIcon size={22} color={color.link} strokeWidth={2.2} />
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Pressable onPress={handleDelete}>
           <Text style={styles.deleteBtn}>Delete</Text>
@@ -207,23 +242,30 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
 
       {/* Order mode toggle */}
       <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>
-          {deck.orderMode === 'fixed' ? '\u2630 Fixed order' : '\uD83D\uDD00 Random order'}
-        </Text>
+        <View style={styles.toggleLabelRow}>
+          <OrderIcon size={18} color={color.fg2} />
+          <Text style={styles.toggleLabel}>
+            {deck.orderMode === 'fixed' ? 'Fixed order' : 'Random order'}
+          </Text>
+        </View>
         <Switch
           value={deck.orderMode === 'random'}
           onValueChange={toggleOrderMode}
-          trackColor={{ true: '#4A90D9', false: '#ddd' }}
+          trackColor={{ true: suit.heart, false: color.hairline }}
+          thumbColor="#fff"
         />
       </View>
 
       {/* Trigger time */}
       <View style={styles.toggleRow}>
-        <Text style={styles.toggleLabel}>
-          {deck.trigger?.time
-            ? `Trigger at ${deck.trigger.time}`
-            : 'Daily trigger'}
-        </Text>
+        <View style={styles.toggleLabelRow}>
+          <TimerIcon size={18} color={color.fg2} />
+          <Text style={styles.toggleLabel}>
+            {deck.trigger?.time
+              ? `Trigger at ${deck.trigger.time}`
+              : 'Daily trigger'}
+          </Text>
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TimeInput
             value={deck.trigger?.time ?? ''}
@@ -237,7 +279,6 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
               setDeck(updated);
 
               if (v && /^\d{2}:\d{2}$/.test(v)) {
-                // First trigger set — request permission contextually
                 const granted = await requestNotificationPermission();
                 if (granted) {
                   scheduleTrigger(updated);
@@ -255,8 +296,9 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                 setDeck(updated);
                 cancelTrigger(deck.id);
               }}
+              hitSlop={8}
             >
-              <Text style={styles.clearTrigger}>{'\u2715'}</Text>
+              <XIcon size={18} color={color.fg4} strokeWidth={2} />
             </Pressable>
           )}
         </View>
@@ -264,65 +306,81 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
 
       {/* Play CTA */}
       <Pressable style={styles.playButton} onPress={startOrResume}>
-        <Text style={styles.playText}>
-          {'\u25B6'} {runLabel}
-        </Text>
+        <PlayIcon size={20} color="#fff" strokeWidth={2.2} />
+        <Text style={styles.playText}>{runLabel}</Text>
       </Pressable>
 
       {/* Card list */}
-      <Text style={styles.sectionTitle}>
-        Cards ({cards.length})
-      </Text>
+      <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
       <FlatList
         data={cards}
         keyExtractor={(c) => c.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item: card, index }) => {
-          const icon = getStatusIcon(card.id);
-          return (
-            <Pressable
-              style={styles.cardRow}
-              onPress={() =>
-                navigation.navigate('CardEditor', {
-                  cardId: card.id,
-                  deckId: deck.id,
-                })
-              }
-            >
-              {deck.orderMode === 'fixed' && (
-                <View style={styles.reorderBtns}>
-                  <Pressable
-                    onPress={(e) => { e.stopPropagation(); moveCard(index, 'up'); }}
-                    disabled={index === 0}
-                    style={styles.reorderBtn}
-                  >
-                    <Text style={[styles.reorderArrow, index === 0 && styles.reorderDisabled]}>{'\u25B2'}</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={(e) => { e.stopPropagation(); moveCard(index, 'down'); }}
-                    disabled={index === cards.length - 1}
-                    style={styles.reorderBtn}
-                  >
-                    <Text style={[styles.reorderArrow, index === cards.length - 1 && styles.reorderDisabled]}>{'\u25BC'}</Text>
-                  </Pressable>
-                </View>
-              )}
-              {deck.orderMode !== 'fixed' && (
-                <Text style={styles.cardIndex}>{index + 1}</Text>
-              )}
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {card.title}
-              </Text>
-              {card.timer && (
-                <Text style={styles.timerBadge}>
+        renderItem={({ item: card, index }) => (
+          <Pressable
+            style={styles.cardRow}
+            onPress={() =>
+              navigation.navigate('CardEditor', {
+                cardId: card.id,
+                deckId: deck.id,
+              })
+            }
+          >
+            {deck.orderMode === 'fixed' ? (
+              <View style={styles.reorderBtns}>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    moveCard(index, 'up');
+                  }}
+                  disabled={index === 0}
+                  hitSlop={4}
+                >
+                  <ChevronUpIcon
+                    size={14}
+                    color={
+                      index === 0 ? color.fgDisabled : color.link
+                    }
+                    strokeWidth={2.2}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    moveCard(index, 'down');
+                  }}
+                  disabled={index === cards.length - 1}
+                  hitSlop={4}
+                >
+                  <ChevronDownIcon
+                    size={14}
+                    color={
+                      index === cards.length - 1
+                        ? color.fgDisabled
+                        : color.link
+                    }
+                    strokeWidth={2.2}
+                  />
+                </Pressable>
+              </View>
+            ) : (
+              <Text style={styles.cardIndex}>{index + 1}</Text>
+            )}
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {card.title}
+            </Text>
+            {card.timer && (
+              <View style={styles.timerBadge}>
+                <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
+                <Text style={styles.timerBadgeText}>
                   {card.timer.durationSeconds}s
                 </Text>
-              )}
-              {icon && <Text style={styles.statusIcon}>{icon}</Text>}
-              <Text style={styles.chevron}>{'\u203A'}</Text>
-            </Pressable>
-          );
-        }}
+              </View>
+            )}
+            <View style={styles.statusIcon}>{renderStatusIcon(card.id)}</View>
+            <ChevronRightIcon size={16} color={color.fg4} />
+          </Pressable>
+        )}
       />
 
       {/* Add card */}
@@ -332,82 +390,117 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           navigation.navigate('CardPicker', { deckId: deck.id })
         }
       >
-        <Text style={styles.addCardText}>+ Add Card</Text>
+        <PlusIcon size={16} color={color.link} strokeWidth={2.2} />
+        <Text style={styles.addCardText}>Add Card</Text>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
+  container: { flex: 1, backgroundColor: color.bgPage },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F5F0EB',
+    backgroundColor: color.bgPage,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 8,
+    alignItems: 'center',
+    paddingHorizontal: space[5],
+    paddingTop: space[9],
+    paddingBottom: space[2],
   },
-  back: { fontSize: 17, color: '#4A90D9' },
-  deleteBtn: { fontSize: 15, color: '#F44336' },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  backText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+  },
+  deleteBtn: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: suit.heart,
+  },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#222',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    fontFamily: font.display,
+    fontSize: fontSize.displayM,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+    paddingHorizontal: space[5],
+    paddingBottom: space[3],
   },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: space[5],
+    paddingVertical: space[2],
   },
-  toggleLabel: { fontSize: 15, color: '#555' },
-  clearTrigger: {
-    fontSize: 16,
-    color: '#999',
-    paddingHorizontal: 4,
+  toggleLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[2],
+  },
+  toggleLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg2,
   },
   playButton: {
-    marginHorizontal: 20,
-    marginVertical: 12,
-    backgroundColor: '#4A90D9',
-    borderRadius: 12,
-    paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    marginHorizontal: space[5],
+    marginVertical: space[3],
+    backgroundColor: suit.heart,
+    borderRadius: radius.m,
+    paddingVertical: 14,
   },
-  playText: { color: '#fff', fontSize: 18, fontWeight: '600' },
+  playText: {
+    fontFamily: font.text,
+    color: '#fff',
+    fontSize: fontSize.bodyL,
+    fontWeight: fontWeight.semibold,
+  },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#888',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
+    paddingHorizontal: space[5],
+    paddingTop: space[3],
+    paddingBottom: space[2],
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: letterSpacing.label,
   },
-  list: { paddingHorizontal: 16 },
+  list: { paddingHorizontal: space[4] },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 6,
-    gap: 10,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
+    paddingHorizontal: space[3] + 2,
+    paddingVertical: space[3] + 2,
+    marginBottom: space[1] + 2,
+    borderWidth: 1,
+    borderColor: color.cardStroke,
+    gap: space[2] + 2,
   },
   cardIndex: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#bbb',
+    fontFamily: font.mono,
+    fontSize: fontSize.bodyS,
+    fontWeight: fontWeight.medium,
+    color: color.fg4,
     width: 20,
     textAlign: 'center',
   },
@@ -417,29 +510,44 @@ const styles = StyleSheet.create({
     width: 20,
     alignItems: 'center',
   },
-  reorderBtn: { padding: 1 },
-  reorderArrow: { fontSize: 10, color: '#4A90D9' },
-  reorderDisabled: { color: '#ddd' },
-  cardTitle: { flex: 1, fontSize: 15, color: '#333' },
+  cardTitle: {
+    flex: 1,
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.fg1,
+  },
   timerBadge: {
-    fontSize: 12,
-    color: '#4A90D9',
-    backgroundColor: '#E8F0FE',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: suitTint.club,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
+    borderRadius: radius.xs,
   },
-  statusIcon: { fontSize: 16, width: 20, textAlign: 'center' },
-  chevron: { fontSize: 20, color: '#ccc' },
+  timerBadgeText: {
+    fontFamily: font.mono,
+    fontSize: fontSize.micro,
+    color: suit.club,
+    fontWeight: fontWeight.medium,
+  },
+  statusIcon: { width: 20, alignItems: 'center' },
   addCard: {
-    margin: 16,
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderStyle: 'dashed',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[1] + 2,
+    margin: space[4],
+    padding: space[3] + 2,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.hairline,
+    borderStyle: 'dashed',
   },
-  addCardText: { fontSize: 15, color: '#4A90D9', fontWeight: '600' },
+  addCardText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+    fontWeight: fontWeight.semibold,
+  },
 });

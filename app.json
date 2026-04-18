@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F5F0EB"
+      "backgroundColor": "#F3EDE2"
     },
     "ios": {
       "supportsTablet": true
@@ -31,9 +31,12 @@
       "name": "In the Cards",
       "shortName": "Cards",
       "display": "standalone",
-      "themeColor": "#4A90D9",
-      "backgroundColor": "#F5F0EB",
+      "themeColor": "#B8213C",
+      "backgroundColor": "#F3EDE2",
       "lang": "en"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

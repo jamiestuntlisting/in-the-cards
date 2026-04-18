@@ -19,6 +19,17 @@ import {
   STATS_LABELS,
 } from '../data/storage';
 import TimeInput from '../components/TimeInput';
+import {
+  color,
+  font,
+  fontSize,
+  fontWeight,
+  letterSpacing,
+  radius,
+  space,
+  suit,
+} from '../design/tokens';
+import { ChevronLeftIcon } from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -52,8 +63,13 @@ export default function SettingsScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>{'\u2039'} Back</Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={styles.backBtn}
+          hitSlop={8}
+        >
+          <ChevronLeftIcon size={22} color={color.link} strokeWidth={2.2} />
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
       </View>
 
@@ -74,16 +90,15 @@ export default function SettingsScreen({ navigation }: Props) {
           value={settings.timezone ?? ''}
           onChangeText={(v) => update({ timezone: v || undefined })}
           placeholder="Auto-detected (e.g. America/New_York)"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={color.fg4}
         />
 
         <Text style={styles.label}>Notification Permission</Text>
-        <Text style={styles.value}>
-          {settings.notificationPermission}
-        </Text>
+        <Text style={styles.value}>{settings.notificationPermission}</Text>
 
-        {/* Stats display toggles */}
-        <Text style={[styles.label, { marginTop: 24 }]}>Stats Display</Text>
+        <Text style={[styles.label, { marginTop: space[6] }]}>
+          Stats Display
+        </Text>
         <Text style={styles.hint}>
           Choose which stats appear in the Progress view.
         </Text>
@@ -98,20 +113,23 @@ export default function SettingsScreen({ navigation }: Props) {
                   idx < ALL_STATS_KEYS.length - 1 && styles.statToggleRowBorder,
                 ]}
               >
-                <Text style={styles.statToggleLabel}>{STATS_LABELS[key]}</Text>
+                <Text style={styles.statToggleLabel}>
+                  {STATS_LABELS[key]}
+                </Text>
                 <Switch
                   value={active}
                   onValueChange={() => toggleStat(key)}
-                  trackColor={{ true: '#4A90D9', false: '#ddd' }}
+                  trackColor={{ true: suit.heart, false: color.hairline }}
+                  thumbColor="#fff"
                 />
               </View>
             );
           })}
         </View>
 
-        <Text style={[styles.label, { marginTop: 24 }]}>About</Text>
+        <Text style={[styles.label, { marginTop: space[6] }]}>About</Text>
         <Text style={styles.aboutText}>
-          In the Cards v0.2.0{'\n'}
+          In the Cards v0.3.0{'\n'}
           A card-based daily routine app.
         </Text>
       </ScrollView>
@@ -120,66 +138,97 @@ export default function SettingsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F0EB' },
-  headerRow: { paddingHorizontal: 20, paddingTop: 56 },
-  back: { fontSize: 17, color: '#4A90D9' },
+  container: { flex: 1, backgroundColor: color.bgPage },
+  headerRow: { paddingHorizontal: space[5], paddingTop: space[9] },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  backText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.link,
+  },
   heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#222',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  scroll: { padding: 20, paddingBottom: 40 },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
+    fontFamily: font.display,
+    fontSize: fontSize.displayM,
+    fontWeight: fontWeight.regular,
+    color: color.fg1,
+    letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: 16,
-    marginBottom: 6,
+    paddingHorizontal: space[5],
+    paddingBottom: space[4],
   },
-  hint: { fontSize: 13, color: '#aaa', marginBottom: 8 },
+  scroll: { padding: space[5], paddingBottom: space[8] },
+  label: {
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fg3,
+    textTransform: 'uppercase',
+    letterSpacing: letterSpacing.label,
+    marginTop: space[4],
+    marginBottom: space[2] - 2,
+  },
+  hint: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg4,
+    marginBottom: space[2],
+  },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    fontFamily: font.text,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
     padding: 14,
-    fontSize: 15,
-    color: '#333',
+    fontSize: fontSize.ui,
+    color: color.fg1,
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   value: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    fontFamily: font.text,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
     padding: 14,
-    fontSize: 15,
-    color: '#555',
+    fontSize: fontSize.ui,
+    color: color.fg3,
+    borderWidth: 1,
+    borderColor: color.hairline,
+    textTransform: 'capitalize',
   },
   timeInputWrap: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 10,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
+    padding: space[2] + 2,
     alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   statsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: color.bgRaised,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.hairline,
   },
   statToggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: space[2] + 2,
   },
   statToggleRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#f0ebe6',
+    borderBottomColor: color.hairlineSoft,
   },
-  statToggleLabel: { fontSize: 14, color: '#333', flex: 1 },
+  statToggleLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg1,
+    flex: 1,
+  },
   aboutText: {
-    fontSize: 14,
-    color: '#888',
-    lineHeight: 22,
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
+    lineHeight: fontSize.bodyS * 1.7,
   },
 });
