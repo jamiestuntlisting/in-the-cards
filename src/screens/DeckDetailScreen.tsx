@@ -7,7 +7,6 @@ import {
   Pressable,
   Switch,
   ActivityIndicator,
-  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -29,6 +28,7 @@ import {
   scheduleTrigger,
   cancelTrigger,
 } from '../data/notifications';
+import TimeInput from '../components/TimeInput';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeckDetail'>;
 
@@ -220,23 +220,23 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
       {/* Trigger time */}
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>
-          {deck.trigger?.time ? `Trigger at ${deck.trigger.time}` : 'Daily trigger'}
+          {deck.trigger?.time
+            ? `Trigger at ${deck.trigger.time}`
+            : 'Daily trigger'}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TextInput
-            style={styles.triggerInput}
+          <TimeInput
             value={deck.trigger?.time ?? ''}
-            onChangeText={async (v) => {
+            onChange={async (v) => {
               if (!deck) return;
-              const time = v.replace(/[^0-9:]/g, '');
               const updated = {
                 ...deck,
-                trigger: time ? { time } : undefined,
+                trigger: v ? { time: v } : undefined,
               };
               await saveDeck(updated);
               setDeck(updated);
 
-              if (time && /^\d{2}:\d{2}$/.test(time)) {
+              if (v && /^\d{2}:\d{2}$/.test(v)) {
                 // First trigger set — request permission contextually
                 const granted = await requestNotificationPermission();
                 if (granted) {
@@ -246,10 +246,19 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                 cancelTrigger(deck.id);
               }
             }}
-            placeholder="HH:MM"
-            placeholderTextColor="#bbb"
-            maxLength={5}
           />
+          {deck.trigger?.time && (
+            <Pressable
+              onPress={async () => {
+                const updated = { ...deck, trigger: undefined };
+                await saveDeck(updated);
+                setDeck(updated);
+                cancelTrigger(deck.id);
+              }}
+            >
+              <Text style={styles.clearTrigger}>{'\u2715'}</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -320,7 +329,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
       <Pressable
         style={styles.addCard}
         onPress={() =>
-          navigation.navigate('CardEditor', { deckId: deck.id })
+          navigation.navigate('CardPicker', { deckId: deck.id })
         }
       >
         <Text style={styles.addCardText}>+ Add Card</Text>
@@ -361,17 +370,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   toggleLabel: { fontSize: 15, color: '#555' },
-  triggerInput: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 15,
-    color: '#333',
-    width: 70,
-    textAlign: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e0db',
+  clearTrigger: {
+    fontSize: 16,
+    color: '#999',
+    paddingHorizontal: 4,
   },
   playButton: {
     marginHorizontal: 20,

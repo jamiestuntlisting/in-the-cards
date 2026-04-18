@@ -6,12 +6,19 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Switch,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import type { Settings } from '../data/types';
-import { getSettings, saveSettings } from '../data/storage';
+import {
+  getSettings,
+  saveSettings,
+  ALL_STATS_KEYS,
+  STATS_LABELS,
+} from '../data/storage';
+import TimeInput from '../components/TimeInput';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -31,6 +38,15 @@ export default function SettingsScreen({ navigation }: Props) {
     await saveSettings(updated);
   };
 
+  const toggleStat = async (key: string) => {
+    if (!settings) return;
+    const has = settings.preferredStatsDisplay.includes(key);
+    const next = has
+      ? settings.preferredStatsDisplay.filter((k) => k !== key)
+      : [...settings.preferredStatsDisplay, key];
+    await update({ preferredStatsDisplay: next });
+  };
+
   if (!settings) return null;
 
   return (
@@ -45,13 +61,12 @@ export default function SettingsScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.label}>Morning Time</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.morningTime}
-          onChangeText={(v) => update({ morningTime: v })}
-          placeholder="HH:MM"
-          placeholderTextColor="#bbb"
-        />
+        <View style={styles.timeInputWrap}>
+          <TimeInput
+            value={settings.morningTime}
+            onChange={(v) => update({ morningTime: v })}
+          />
+        </View>
 
         <Text style={styles.label}>Timezone Fallback</Text>
         <TextInput
@@ -67,9 +82,36 @@ export default function SettingsScreen({ navigation }: Props) {
           {settings.notificationPermission}
         </Text>
 
+        {/* Stats display toggles */}
+        <Text style={[styles.label, { marginTop: 24 }]}>Stats Display</Text>
+        <Text style={styles.hint}>
+          Choose which stats appear in the Progress view.
+        </Text>
+        <View style={styles.statsCard}>
+          {ALL_STATS_KEYS.map((key, idx) => {
+            const active = settings.preferredStatsDisplay.includes(key);
+            return (
+              <View
+                key={key}
+                style={[
+                  styles.statToggleRow,
+                  idx < ALL_STATS_KEYS.length - 1 && styles.statToggleRowBorder,
+                ]}
+              >
+                <Text style={styles.statToggleLabel}>{STATS_LABELS[key]}</Text>
+                <Switch
+                  value={active}
+                  onValueChange={() => toggleStat(key)}
+                  trackColor={{ true: '#4A90D9', false: '#ddd' }}
+                />
+              </View>
+            );
+          })}
+        </View>
+
         <Text style={[styles.label, { marginTop: 24 }]}>About</Text>
         <Text style={styles.aboutText}>
-          In the Cards v0.1.0{'\n'}
+          In the Cards v0.2.0{'\n'}
           A card-based daily routine app.
         </Text>
       </ScrollView>
@@ -98,6 +140,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 6,
   },
+  hint: { fontSize: 13, color: '#aaa', marginBottom: 8 },
   input: {
     backgroundColor: '#fff',
     borderRadius: 10,
@@ -112,6 +155,28 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#555',
   },
+  timeInputWrap: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'flex-start',
+  },
+  statsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+  },
+  statToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  statToggleRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0ebe6',
+  },
+  statToggleLabel: { fontSize: 14, color: '#333', flex: 1 },
   aboutText: {
     fontSize: 14,
     color: '#888',

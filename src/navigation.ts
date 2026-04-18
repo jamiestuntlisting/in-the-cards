@@ -3,6 +3,7 @@ export type RootStackParamList = {
   DeckDetail: { deckId: string };
   Play: { deckId: string; date: string };
   CardEditor: { cardId?: string; deckId?: string };
+  CardPicker: { deckId: string };
   NewDeck: undefined;
   Stats: undefined;
   Goals: undefined;

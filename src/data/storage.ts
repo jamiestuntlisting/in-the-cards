@@ -164,14 +164,37 @@ export async function deleteGoal(id: string): Promise<void> {
 
 // ─── Settings ───
 
+export const ALL_STATS_KEYS = [
+  'completion_pct',
+  'current_streak',
+  'longest_streak',
+  'total_swipes',
+  'nemesis_card',
+  'most_consistent_card',
+  'per_card_trends',
+  'deck_completion_rate',
+  'time_of_day',
+  'best_day_of_week',
+  'today_log',
+] as const;
+
+export const STATS_LABELS: Record<string, string> = {
+  completion_pct: 'Completion Rate',
+  current_streak: 'Current Streak',
+  longest_streak: 'Longest Streak',
+  total_swipes: 'Total Swipes',
+  nemesis_card: 'Your Nemesis Card',
+  most_consistent_card: 'Most Consistent Card',
+  per_card_trends: 'Per-Card Trends',
+  deck_completion_rate: 'Deck Completion Rate',
+  time_of_day: 'Time-of-Day Analysis',
+  best_day_of_week: 'Best Day of Week',
+  today_log: "Today's Log",
+};
+
 const DEFAULT_SETTINGS: Settings = {
   morningTime: '07:00',
-  preferredStatsDisplay: [
-    'completion_pct',
-    'current_streak',
-    'longest_streak',
-    'today_log',
-  ],
+  preferredStatsDisplay: [...ALL_STATS_KEYS],
   notificationPermission: 'default',
 };
 

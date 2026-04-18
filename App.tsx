@@ -10,11 +10,13 @@ import { seedIfNeeded } from './src/data/seedData';
 import { checkMidnightRollover } from './src/data/rollover';
 import { initTriggers } from './src/data/notifications';
 import { getAllDecks } from './src/data/storage';
+import { determineInitialAction } from './src/data/initialRoute';
 
 import DeckListScreen from './src/screens/DeckListScreen';
 import DeckDetailScreen from './src/screens/DeckDetailScreen';
 import PlayScreen from './src/screens/PlayScreen';
 import CardEditorScreen from './src/screens/CardEditorScreen';
+import CardPickerScreen from './src/screens/CardPickerScreen';
 import NewDeckScreen from './src/screens/NewDeckScreen';
 import StatsScreen from './src/screens/StatsScreen';
 import GoalsScreen from './src/screens/GoalsScreen';
@@ -22,8 +24,15 @@ import SettingsScreen from './src/screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+type InitialAction =
+  | { screen: 'DeckList' }
+  | { screen: 'Play'; params: { deckId: string; date: string } };
+
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [initialAction, setInitialAction] = useState<InitialAction>({
+    screen: 'DeckList',
+  });
 
   // Seed tutorial deck on first launch + lock body scroll on web
   useEffect(() => {
@@ -31,7 +40,11 @@ export default function App() {
       .then(() => checkMidnightRollover())
       .then(() => getAllDecks())
       .then((decks) => initTriggers(decks))
-      .then(() => setReady(true));
+      .then(() => determineInitialAction())
+      .then((action) => {
+        setInitialAction(action);
+        setReady(true);
+      });
 
     if (Platform.OS === 'web') {
       document.body.style.overflow = 'hidden';
@@ -50,10 +63,22 @@ export default function App() {
     );
   }
 
+  // Build initial state so navigator lands on the right screen with params
+  const initialState =
+    initialAction.screen === 'Play'
+      ? {
+          routes: [
+            { name: 'DeckList' as const },
+            { name: 'Play' as const, params: initialAction.params },
+          ],
+          index: 1,
+        }
+      : undefined;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
-      <NavigationContainer>
+      <NavigationContainer initialState={initialState}>
         <Stack.Navigator
           screenOptions={{ headerShown: false }}
           initialRouteName="DeckList"
@@ -68,6 +93,11 @@ export default function App() {
           <Stack.Screen
             name="CardEditor"
             component={CardEditorScreen}
+            options={{ presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="CardPicker"
+            component={CardPickerScreen}
             options={{ presentation: 'modal' }}
           />
           <Stack.Screen
