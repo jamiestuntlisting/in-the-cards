@@ -32,6 +32,7 @@ import {
 import TimeInput from '../components/TimeInput';
 import ScreenContainer from '../components/ScreenContainer';
 import CardComposer, { type CardState } from '../components/CardComposer';
+import DraggableCardRow from '../components/DraggableCardRow';
 import {
   color,
   font,
@@ -47,8 +48,6 @@ import {
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
   CheckIcon,
   SkipIcon,
   DeferIcon,
@@ -62,6 +61,10 @@ import {
 } from '../design/icons';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeckDetail'>;
+
+// Measured row height incl. vertical padding + border + marginBottom — used by
+// DraggableCardRow to translate pixel drag distance into row offsets.
+const ROW_HEIGHT = 58;
 
 export default function DeckDetailScreen({ route, navigation }: Props) {
   const { deckId } = route.params;
@@ -113,15 +116,15 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     setDeck(updated);
   };
 
-  const moveCard = async (fromIndex: number, direction: 'up' | 'down') => {
-    if (!deck) return;
-    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+  const moveCardByIndex = async (fromIndex: number, toIndex: number) => {
+    if (!deck || fromIndex === toIndex) return;
     if (toIndex < 0 || toIndex >= deck.cardRefs.length) return;
 
     const refs = [...deck.cardRefs].sort(
       (a, b) => a.positionInDeck - b.positionInDeck
     );
-    [refs[fromIndex], refs[toIndex]] = [refs[toIndex], refs[fromIndex]];
+    const [moved] = refs.splice(fromIndex, 1);
+    refs.splice(toIndex, 0, moved);
     refs.forEach((r, i) => (r.positionInDeck = i));
 
     const updated = { ...deck, cardRefs: refs };
@@ -386,73 +389,65 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
 
         {/* Card list — rendered inline inside the scroll view */}
         <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
+        {deck.orderMode === 'fixed' && cards.length > 1 && (
+          <Text style={styles.dragHint}>
+            Long-press a card and drag to reorder.
+          </Text>
+        )}
         <View style={styles.list}>
-          {cards.map((card, index) => (
-            <Pressable
-              key={card.id}
-              style={styles.cardRow}
-              onPress={() =>
-                navigation.navigate('CardEditor', {
-                  cardId: card.id,
-                  deckId: deck.id,
-                })
-              }
-            >
-              {deck.orderMode === 'fixed' ? (
-                <View style={styles.reorderBtns}>
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      moveCard(index, 'up');
-                    }}
-                    disabled={index === 0}
-                    hitSlop={4}
-                  >
-                    <ChevronUpIcon
-                      size={14}
-                      color={index === 0 ? color.fgDisabled : color.link}
-                      strokeWidth={2.2}
-                    />
-                  </Pressable>
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      moveCard(index, 'down');
-                    }}
-                    disabled={index === cards.length - 1}
-                    hitSlop={4}
-                  >
-                    <ChevronDownIcon
-                      size={14}
-                      color={
-                        index === cards.length - 1
-                          ? color.fgDisabled
-                          : color.link
-                      }
-                      strokeWidth={2.2}
-                    />
-                  </Pressable>
+          {cards.map((card, index) => {
+            const rowContent = (
+              <Pressable
+                style={styles.cardRow}
+                onPress={() =>
+                  navigation.navigate('CardEditor', {
+                    cardId: card.id,
+                    deckId: deck.id,
+                  })
+                }
+              >
+                {deck.orderMode === 'fixed' ? (
+                  <View style={styles.gripHandle}>
+                    <FixedOrderIcon size={16} color={color.fg4} strokeWidth={2} />
+                  </View>
+                ) : (
+                  <Text style={styles.cardIndex}>{index + 1}</Text>
+                )}
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {card.title}
+                </Text>
+                {card.timer && (
+                  <View style={styles.timerBadge}>
+                    <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
+                    <Text style={styles.timerBadgeText}>
+                      {card.timer.durationSeconds}s
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.statusIcon}>
+                  {renderStatusIcon(card.id)}
                 </View>
-              ) : (
-                <Text style={styles.cardIndex}>{index + 1}</Text>
-              )}
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {card.title}
-              </Text>
-              {card.timer && (
-                <View style={styles.timerBadge}>
-                  <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
-                  <Text style={styles.timerBadgeText}>
-                    {card.timer.durationSeconds}s
-                  </Text>
-                </View>
-              )}
-              <View style={styles.statusIcon}>
-                {renderStatusIcon(card.id)}
-              </View>
-              <ChevronRightIcon size={16} color={color.fg4} />
-            </Pressable>
-          ))}
+                <ChevronRightIcon size={16} color={color.fg4} />
+              </Pressable>
+            );
+
+            // Drag-to-reorder only makes sense in fixed order mode
+            if (deck.orderMode === 'fixed') {
+              return (
+                <DraggableCardRow
+                  key={card.id}
+                  index={index}
+                  totalRows={cards.length}
+                  rowHeight={ROW_HEIGHT}
+                  onReorder={moveCardByIndex}
+                >
+                  {rowContent}
+                </DraggableCardRow>
+              );
+            }
+
+            return <View key={card.id}>{rowContent}</View>;
+          })}
         </View>
 
         {/* Resume / Play — scrolls with the content */}
@@ -617,11 +612,21 @@ const styles = StyleSheet.create({
     width: 20,
     textAlign: 'center',
   },
-  reorderBtns: {
-    flexDirection: 'column',
-    gap: 2,
+  gripHandle: {
     width: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.7,
+    // Cursor hint on web — shows the grab affordance
+    cursor: 'grab',
+  } as any,
+  dragHint: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    paddingHorizontal: space[5],
+    paddingBottom: space[2],
+    fontStyle: 'italic',
   },
   cardTitle: {
     flex: 1,
