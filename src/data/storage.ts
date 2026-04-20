@@ -311,8 +311,22 @@ export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// ─── Export / Import / Reset — for backup and cross-device transfer ───
+
+export interface DataBundle {
+  version: 1;
+  exportedAt: number;
+  cards: Card[];
+  decks: Deck[];
+  runs: DailyRun[];
+  logs: CompletionLog[];
+  goals: Goal[];
+  settings: Settings;
+}
+
 /**
- * Dump all stored state as JSON — useful for debugging or export.
+ * Dump all stored state as a JSON string — paste into another device's
+ * Import box to move your cards across.
  */
 export async function exportAllData(): Promise<string> {
   const [cards, decks, runs, logs, goals, settings] = await Promise.all([
@@ -323,9 +337,148 @@ export async function exportAllData(): Promise<string> {
     getAllGoals(),
     getSettings(),
   ]);
-  return JSON.stringify(
-    { cards, decks, runs, logs, goals, settings },
-    null,
-    2
-  );
+  const bundle: DataBundle = {
+    version: 1,
+    exportedAt: Date.now(),
+    cards,
+    decks,
+    runs,
+    logs,
+    goals,
+    settings,
+  };
+  return JSON.stringify(bundle, null, 2);
+}
+
+/**
+ * Restore state from an exported JSON string. Merges with existing data
+ * by default (existing ids win). Set `mode: 'replace'` to wipe first.
+ */
+export async function importAllData(
+  json: string,
+  mode: 'merge' | 'replace' = 'merge'
+): Promise<{
+  cards: number;
+  decks: number;
+  runs: number;
+  logs: number;
+  goals: number;
+}> {
+  const parsed = JSON.parse(json) as Partial<DataBundle>;
+
+  // Basic shape validation
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Import file is not a JSON object.');
+  }
+  const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
+  const decks = Array.isArray(parsed.decks) ? parsed.decks : [];
+  const runs = Array.isArray(parsed.runs) ? parsed.runs : [];
+  const logs = Array.isArray(parsed.logs) ? parsed.logs : [];
+  const goals = Array.isArray(parsed.goals) ? parsed.goals : [];
+  const settings = parsed.settings;
+
+  if (mode === 'replace') {
+    await setJSON(KEYS.CARDS, cards);
+    await setJSON(KEYS.DECKS, decks);
+    await setJSON(KEYS.DAILY_RUNS, runs);
+    await setJSON(KEYS.COMPLETION_LOGS, logs);
+    await setJSON(KEYS.GOALS, goals);
+    if (settings) await setJSON(KEYS.SETTINGS, settings);
+  } else {
+    // Merge: existing ids win
+    const mergeById = <T extends { id: string }>(
+      existing: T[],
+      incoming: T[]
+    ): T[] => {
+      const existingIds = new Set(existing.map((x) => x.id));
+      return [...existing, ...incoming.filter((x) => !existingIds.has(x.id))];
+    };
+
+    const [
+      existingCards,
+      existingDecks,
+      existingRuns,
+      existingLogs,
+      existingGoals,
+    ] = await Promise.all([
+      getAllCards(),
+      getAllDecks(),
+      getAllDailyRuns(),
+      getAllLogs(),
+      getAllGoals(),
+    ]);
+
+    await setJSON(KEYS.CARDS, mergeById(existingCards, cards));
+    await setJSON(KEYS.DECKS, mergeById(existingDecks, decks));
+    // Runs keyed by (deckId + date), not id — merge manually
+    const runKey = (r: DailyRun) => `${r.deckId}::${r.date}`;
+    const existingRunKeys = new Set(existingRuns.map(runKey));
+    await setJSON(KEYS.DAILY_RUNS, [
+      ...existingRuns,
+      ...runs.filter((r) => !existingRunKeys.has(runKey(r))),
+    ]);
+    await setJSON(KEYS.COMPLETION_LOGS, mergeById(existingLogs, logs));
+    await setJSON(KEYS.GOALS, mergeById(existingGoals, goals));
+    // Settings: incoming wins if present
+    if (settings) await setJSON(KEYS.SETTINGS, settings);
+  }
+
+  return {
+    cards: cards.length,
+    decks: decks.length,
+    runs: runs.length,
+    logs: logs.length,
+    goals: goals.length,
+  };
+}
+
+export interface DataCounts {
+  cards: number;
+  decks: number;
+  runs: number;
+  logs: number;
+  goals: number;
+}
+
+export async function countAllData(): Promise<DataCounts> {
+  const [cards, decks, runs, logs, goals] = await Promise.all([
+    getAllCards(),
+    getAllDecks(),
+    getAllDailyRuns(),
+    getAllLogs(),
+    getAllGoals(),
+  ]);
+  return {
+    cards: cards.length,
+    decks: decks.length,
+    runs: runs.length,
+    logs: logs.length,
+    goals: goals.length,
+  };
+}
+
+/**
+ * Return every key localStorage has on this origin — useful to see what
+ * the app actually has stored (including legacy keys from old builds).
+ */
+export function dumpRawLocalStorage(): Array<{ key: string; bytes: number }> {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  const out: Array<{ key: string; bytes: number }> = [];
+  for (let i = 0; i < window.localStorage.length; i++) {
+    const key = window.localStorage.key(i);
+    if (!key) continue;
+    const value = window.localStorage.getItem(key) ?? '';
+    out.push({ key, bytes: value.length });
+  }
+  return out.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+/**
+ * Wipe all itc:* storage. Irreversible.
+ */
+export async function resetAllData(): Promise<void> {
+  const keys = Object.values(KEYS);
+  for (const k of keys) {
+    await removeItem(k);
+  }
 }
