@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -81,6 +81,10 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     link: undefined,
   };
   const [composer, setComposer] = useState<CardState>(emptyComposer);
+
+  // Refs for auto-scroll during drag-reorder
+  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollOffsetRef = useRef<number>(0);
 
   const reload = useCallback(async () => {
     const [d, allCards] = await Promise.all([getDeck(deckId), getAllCards()]);
@@ -284,6 +288,11 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
 
       {/* Scrollable content — everything else lives here */}
       <ScrollView
+        ref={scrollRef}
+        onScroll={(e) => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -440,6 +449,8 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                   totalRows={cards.length}
                   rowHeight={ROW_HEIGHT}
                   onReorder={moveCardByIndex}
+                  scrollRef={scrollRef}
+                  scrollOffsetRef={scrollOffsetRef}
                 >
                   {rowContent}
                 </DraggableCardRow>
