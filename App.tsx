@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import type { RootStackParamList } from './src/navigation';
 import { seedIfNeeded } from './src/data/seedData';
+import { migrateLegacyStorage } from './src/data/migrate';
 import { checkMidnightRollover } from './src/data/rollover';
 import { initTriggers } from './src/data/notifications';
 import { getAllDecks } from './src/data/storage';
@@ -55,6 +56,10 @@ export default function App() {
 
   // Seed tutorial deck on first launch + lock body scroll on web
   useEffect(() => {
+    // Migrate any pre-namespacing localStorage data FIRST, so seed+rollover
+    // see the user's existing cards/decks under the new keys.
+    migrateLegacyStorage();
+
     seedIfNeeded()
       .then(() => checkMidnightRollover())
       .then(() => getAllDecks())
