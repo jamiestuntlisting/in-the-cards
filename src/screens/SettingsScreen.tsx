@@ -273,7 +273,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
         <Text style={[styles.label, { marginTop: space[6] }]}>About</Text>
         <Text style={styles.aboutText}>
-          In the Cards v0.3.0{'\n'}
+          In the Cards v0.4.0 (data-transfer){'\n'}
           A card-based daily routine app.
         </Text>
       </ScrollView>
