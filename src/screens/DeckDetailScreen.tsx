@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   Pressable,
   Switch,
   ActivityIndicator,
@@ -264,6 +264,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
 
   return (
     <ScreenContainer>
+      {/* Fixed header */}
       <View style={styles.header}>
         <Pressable
           onPress={() => navigation.goBack()}
@@ -278,182 +279,190 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         </Pressable>
       </View>
 
-      <Text style={styles.title}>{deck.name}</Text>
+      {/* Scrollable content — everything else lives here */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator
+      >
+        <Text style={styles.title}>{deck.name}</Text>
 
-      {/* Order mode toggle */}
-      <View style={styles.toggleRow}>
-        <View style={styles.toggleLabelRow}>
-          <OrderIcon size={18} color={color.fg2} />
-          <Text style={styles.toggleLabel}>
-            {deck.orderMode === 'fixed' ? 'Fixed order' : 'Random order'}
-          </Text>
-        </View>
-        <Switch
-          value={deck.orderMode === 'random'}
-          onValueChange={toggleOrderMode}
-          trackColor={{ true: suit.heart, false: color.hairline }}
-          thumbColor="#fff"
-        />
-      </View>
-
-      {/* Trigger time */}
-      <View style={styles.toggleRow}>
-        <View style={styles.toggleLabelRow}>
-          <TimerIcon size={18} color={color.fg2} />
-          <Text style={styles.toggleLabel}>
-            {deck.trigger?.time
-              ? `Trigger at ${deck.trigger.time}`
-              : 'Daily trigger'}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TimeInput
-            value={deck.trigger?.time ?? ''}
-            onChange={async (v) => {
-              if (!deck) return;
-              const updated = {
-                ...deck,
-                trigger: v ? { time: v } : undefined,
-              };
-              await saveDeck(updated);
-              setDeck(updated);
-
-              if (v && /^\d{2}:\d{2}$/.test(v)) {
-                const granted = await requestNotificationPermission();
-                if (granted) {
-                  scheduleTrigger(updated);
-                }
-              } else {
-                cancelTrigger(deck.id);
-              }
-            }}
+        {/* Order mode toggle */}
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleLabelRow}>
+            <OrderIcon size={18} color={color.fg2} />
+            <Text style={styles.toggleLabel}>
+              {deck.orderMode === 'fixed' ? 'Fixed order' : 'Random order'}
+            </Text>
+          </View>
+          <Switch
+            value={deck.orderMode === 'random'}
+            onValueChange={toggleOrderMode}
+            trackColor={{ true: suit.heart, false: color.hairline }}
+            thumbColor="#fff"
           />
-          {deck.trigger?.time && (
-            <Pressable
-              onPress={async () => {
-                const updated = { ...deck, trigger: undefined };
+        </View>
+
+        {/* Trigger time */}
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleLabelRow}>
+            <TimerIcon size={18} color={color.fg2} />
+            <Text style={styles.toggleLabel}>
+              {deck.trigger?.time
+                ? `Trigger at ${deck.trigger.time}`
+                : 'Daily trigger'}
+            </Text>
+          </View>
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+          >
+            <TimeInput
+              value={deck.trigger?.time ?? ''}
+              onChange={async (v) => {
+                if (!deck) return;
+                const updated = {
+                  ...deck,
+                  trigger: v ? { time: v } : undefined,
+                };
                 await saveDeck(updated);
                 setDeck(updated);
-                cancelTrigger(deck.id);
+
+                if (v && /^\d{2}:\d{2}$/.test(v)) {
+                  const granted = await requestNotificationPermission();
+                  if (granted) {
+                    scheduleTrigger(updated);
+                  }
+                } else {
+                  cancelTrigger(deck.id);
+                }
               }}
-              hitSlop={8}
+            />
+            {deck.trigger?.time && (
+              <Pressable
+                onPress={async () => {
+                  const updated = { ...deck, trigger: undefined };
+                  await saveDeck(updated);
+                  setDeck(updated);
+                  cancelTrigger(deck.id);
+                }}
+                hitSlop={8}
+              >
+                <XIcon size={18} color={color.fg4} strokeWidth={2} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {/* Inline WYSIWYG composer — the editor IS the card */}
+        <View style={styles.composerWrap}>
+          <CardComposer
+            state={composer}
+            onChange={setComposer}
+            size="inline"
+          />
+          <View style={styles.composerActions}>
+            <Pressable
+              style={styles.libraryBtn}
+              onPress={() =>
+                navigation.navigate('CardPicker', { deckId: deck.id })
+              }
             >
-              <XIcon size={18} color={color.fg4} strokeWidth={2} />
+              <Text style={styles.libraryBtnText}>From library</Text>
             </Pressable>
-          )}
+            <Pressable
+              style={[
+                styles.addToDeckBtn,
+                !composer.title.trim() && styles.addToDeckBtnDisabled,
+              ]}
+              onPress={addComposerCard}
+              disabled={!composer.title.trim()}
+            >
+              <PlusIcon size={16} color="#fff" strokeWidth={2.2} />
+              <Text style={styles.addToDeckText}>Add to deck</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
 
-      {/* Inline WYSIWYG composer — the editor IS the card */}
-      <View style={styles.composerWrap}>
-        <CardComposer
-          state={composer}
-          onChange={setComposer}
-          size="inline"
-        />
-        <View style={styles.composerActions}>
-          <Pressable
-            style={styles.libraryBtn}
-            onPress={() =>
-              navigation.navigate('CardPicker', { deckId: deck.id })
-            }
-          >
-            <Text style={styles.libraryBtnText}>From library</Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.addToDeckBtn,
-              !composer.title.trim() && styles.addToDeckBtnDisabled,
-            ]}
-            onPress={addComposerCard}
-            disabled={!composer.title.trim()}
-          >
-            <PlusIcon size={16} color="#fff" strokeWidth={2.2} />
-            <Text style={styles.addToDeckText}>Add to deck</Text>
-          </Pressable>
+        {/* Card list — rendered inline inside the scroll view */}
+        <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
+        <View style={styles.list}>
+          {cards.map((card, index) => (
+            <Pressable
+              key={card.id}
+              style={styles.cardRow}
+              onPress={() =>
+                navigation.navigate('CardEditor', {
+                  cardId: card.id,
+                  deckId: deck.id,
+                })
+              }
+            >
+              {deck.orderMode === 'fixed' ? (
+                <View style={styles.reorderBtns}>
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      moveCard(index, 'up');
+                    }}
+                    disabled={index === 0}
+                    hitSlop={4}
+                  >
+                    <ChevronUpIcon
+                      size={14}
+                      color={index === 0 ? color.fgDisabled : color.link}
+                      strokeWidth={2.2}
+                    />
+                  </Pressable>
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      moveCard(index, 'down');
+                    }}
+                    disabled={index === cards.length - 1}
+                    hitSlop={4}
+                  >
+                    <ChevronDownIcon
+                      size={14}
+                      color={
+                        index === cards.length - 1
+                          ? color.fgDisabled
+                          : color.link
+                      }
+                      strokeWidth={2.2}
+                    />
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.cardIndex}>{index + 1}</Text>
+              )}
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {card.title}
+              </Text>
+              {card.timer && (
+                <View style={styles.timerBadge}>
+                  <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
+                  <Text style={styles.timerBadgeText}>
+                    {card.timer.durationSeconds}s
+                  </Text>
+                </View>
+              )}
+              <View style={styles.statusIcon}>
+                {renderStatusIcon(card.id)}
+              </View>
+              <ChevronRightIcon size={16} color={color.fg4} />
+            </Pressable>
+          ))}
         </View>
-      </View>
 
-      {/* Card list */}
-      <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
-      <FlatList
-        data={cards}
-        keyExtractor={(c) => c.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item: card, index }) => (
-          <Pressable
-            style={styles.cardRow}
-            onPress={() =>
-              navigation.navigate('CardEditor', {
-                cardId: card.id,
-                deckId: deck.id,
-              })
-            }
-          >
-            {deck.orderMode === 'fixed' ? (
-              <View style={styles.reorderBtns}>
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    moveCard(index, 'up');
-                  }}
-                  disabled={index === 0}
-                  hitSlop={4}
-                >
-                  <ChevronUpIcon
-                    size={14}
-                    color={
-                      index === 0 ? color.fgDisabled : color.link
-                    }
-                    strokeWidth={2.2}
-                  />
-                </Pressable>
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    moveCard(index, 'down');
-                  }}
-                  disabled={index === cards.length - 1}
-                  hitSlop={4}
-                >
-                  <ChevronDownIcon
-                    size={14}
-                    color={
-                      index === cards.length - 1
-                        ? color.fgDisabled
-                        : color.link
-                    }
-                    strokeWidth={2.2}
-                  />
-                </Pressable>
-              </View>
-            ) : (
-              <Text style={styles.cardIndex}>{index + 1}</Text>
-            )}
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {card.title}
-            </Text>
-            {card.timer && (
-              <View style={styles.timerBadge}>
-                <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
-                <Text style={styles.timerBadgeText}>
-                  {card.timer.durationSeconds}s
-                </Text>
-              </View>
-            )}
-            <View style={styles.statusIcon}>{renderStatusIcon(card.id)}</View>
-            <ChevronRightIcon size={16} color={color.fg4} />
+        {/* Resume / Play — scrolls with the content */}
+        {cards.length > 0 && (
+          <Pressable style={styles.resumeBottom} onPress={startOrResume}>
+            <PlayIcon size={18} color="#fff" strokeWidth={2.2} />
+            <Text style={styles.resumeBottomText}>{runLabel}</Text>
           </Pressable>
         )}
-      />
-
-      {/* Resume / Play — now the secondary action at the bottom */}
-      {cards.length > 0 && (
-        <Pressable style={styles.resumeBottom} onPress={startOrResume}>
-          <PlayIcon size={18} color="#fff" strokeWidth={2.2} />
-          <Text style={styles.resumeBottomText}>{runLabel}</Text>
-        </Pressable>
-      )}
+      </ScrollView>
     </ScreenContainer>
   );
 }
@@ -466,6 +475,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: color.bgPage,
   },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: space[8] },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
