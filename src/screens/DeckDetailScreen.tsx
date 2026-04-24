@@ -33,6 +33,7 @@ import TimeInput from '../components/TimeInput';
 import ScreenContainer from '../components/ScreenContainer';
 import CardComposer, { type CardState } from '../components/CardComposer';
 import DraggableCardRow from '../components/DraggableCardRow';
+import { computeDeckAvgRunMs, formatDuration } from '../data/stats';
 import {
   color,
   font,
@@ -81,13 +82,19 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     link: undefined,
   };
   const [composer, setComposer] = useState<CardState>(emptyComposer);
+  const [avgRunMs, setAvgRunMs] = useState<number | null>(null);
+  const [completedRunsCount, setCompletedRunsCount] = useState(0);
 
   // Refs for auto-scroll during drag-reorder
   const scrollRef = useRef<ScrollView | null>(null);
   const scrollOffsetRef = useRef<number>(0);
 
   const reload = useCallback(async () => {
-    const [d, allCards] = await Promise.all([getDeck(deckId), getAllCards()]);
+    const [d, allCards, allRuns] = await Promise.all([
+      getDeck(deckId),
+      getAllCards(),
+      getAllDailyRuns(),
+    ]);
     if (!d) {
       navigation.goBack();
       return;
@@ -99,8 +106,18 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
       .filter(Boolean) as Card[];
     setCards(ordered);
 
-    const run = await getDailyRun(deckId, todayString());
+    const run = allRuns.find(
+      (r) => r.deckId === deckId && r.date === todayString()
+    );
     setTodayRun(run ?? null);
+
+    // Deck-level avg run duration from all historical complete runs
+    setAvgRunMs(computeDeckAvgRunMs(allRuns, deckId));
+    setCompletedRunsCount(
+      allRuns.filter((r) => r.deckId === deckId && r.status === 'complete')
+        .length
+    );
+
     setLoading(false);
   }, [deckId, navigation]);
 
@@ -299,6 +316,19 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         showsVerticalScrollIndicator
       >
         <Text style={styles.title}>{deck.name}</Text>
+
+        {/* Avg run duration — historical */}
+        {avgRunMs != null && completedRunsCount > 0 && (
+          <View style={styles.avgRunRow}>
+            <TimerIcon size={14} color={color.fg3} strokeWidth={2} />
+            <Text style={styles.avgRunText}>
+              Avg. run: {formatDuration(avgRunMs)}
+              {completedRunsCount > 1
+                ? `  \u00B7  over ${completedRunsCount} runs`
+                : ''}
+            </Text>
+          </View>
+        )}
 
         {/* Order mode toggle */}
         <View style={styles.toggleRow}>
@@ -514,7 +544,19 @@ const styles = StyleSheet.create({
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
     paddingHorizontal: space[5],
+    paddingBottom: space[1] + 2,
+  },
+  avgRunRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: space[5],
     paddingBottom: space[3],
+  },
+  avgRunText: {
+    fontFamily: font.mono,
+    fontSize: fontSize.bodyS,
+    color: color.fg3,
   },
   toggleRow: {
     flexDirection: 'row',

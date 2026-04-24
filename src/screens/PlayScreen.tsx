@@ -17,7 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import type { Card, Deck, DailyRun } from '../data/types';
+import type { Card, Deck, DailyRun, LiveCardState } from '../data/types';
 import {
   getDeck,
   getAllDecks,
@@ -231,19 +231,50 @@ export default function PlayScreen({ route, navigation }: Props) {
         }
       };
 
+      // Rewrites liveCardStates so positions match `newOrder` and the swiped
+      // card's status/endedAt is stamped. Preserves any existing startedAt.
+      const rebuildRunStates = (
+        newOrder: Card[],
+        swipedCardId: string,
+        newStatus: LiveCardState['status'],
+        now: number
+      ): LiveCardState[] =>
+        newOrder.map((c, i) => {
+          const existing = run.liveCardStates.find(
+            (s) => s.cardId === c.id
+          );
+          const base: LiveCardState = existing
+            ? { ...existing }
+            : { cardId: c.id, status: 'pending', position: i };
+          base.position = i;
+          if (c.id === swipedCardId) {
+            base.status = newStatus;
+            // Terminal swipes stamp an end time; defer/shuffle don't
+            if (newStatus === 'complete' || newStatus === 'skipped') {
+              base.endedAt = now;
+            }
+          }
+          return base;
+        });
+
+      const now = Date.now();
+
       switch (direction) {
         case 'right': {
           setStats((s) => ({ ...s, completed: s.completed + 1 }));
-          // Mark card complete in run
-          const updatedRun = { ...run };
-          const stateEntry = updatedRun.liveCardStates.find(
-            (s) => s.cardId === currentCard.id
-          );
-          if (stateEntry) stateEntry.status = 'complete';
           const newIdx = currentIndex + 1;
           const isDone = newIdx >= cards.length;
-          updatedRun.status = isDone ? 'complete' : 'in-progress';
-          updatedRun.updatedAt = Date.now();
+          const updatedRun: DailyRun = {
+            ...run,
+            liveCardStates: rebuildRunStates(
+              cards,
+              currentCard.id,
+              'complete',
+              now
+            ),
+            status: isDone ? 'complete' : 'in-progress',
+            updatedAt: now,
+          };
           setRun(updatedRun);
           await saveDailyRun(updatedRun);
           await maybeAutoDeleteTutorial(isDone);
@@ -253,15 +284,19 @@ export default function PlayScreen({ route, navigation }: Props) {
         }
         case 'up': {
           setStats((s) => ({ ...s, skipped: s.skipped + 1 }));
-          const updatedRun = { ...run };
-          const stateEntry = updatedRun.liveCardStates.find(
-            (s) => s.cardId === currentCard.id
-          );
-          if (stateEntry) stateEntry.status = 'skipped';
           const newIdx = currentIndex + 1;
           const isDone = newIdx >= cards.length;
-          updatedRun.status = isDone ? 'complete' : 'in-progress';
-          updatedRun.updatedAt = Date.now();
+          const updatedRun: DailyRun = {
+            ...run,
+            liveCardStates: rebuildRunStates(
+              cards,
+              currentCard.id,
+              'skipped',
+              now
+            ),
+            status: isDone ? 'complete' : 'in-progress',
+            updatedAt: now,
+          };
           setRun(updatedRun);
           await saveDailyRun(updatedRun);
           await maybeAutoDeleteTutorial(isDone);
@@ -271,36 +306,67 @@ export default function PlayScreen({ route, navigation }: Props) {
         }
         case 'left': {
           setStats((s) => ({ ...s, deferred: s.deferred + 1 }));
-          setCards((prev) => {
-            const next = [...prev];
-            const card = next[currentIndex];
-            next.splice(currentIndex, 1);
-            const insertPos = Math.min(currentIndex + 1, next.length);
-            next.splice(insertPos, 0, card);
-            return next;
-          });
+          // Compute new order
+          const reordered = [...cards];
+          const card = reordered[currentIndex];
+          reordered.splice(currentIndex, 1);
+          const insertPos = Math.min(currentIndex + 1, reordered.length);
+          reordered.splice(insertPos, 0, card);
+          // Persist new order AND reset startedAt on the deferred card so
+          // its timer starts fresh when it reappears.
+          const updatedRun: DailyRun = {
+            ...run,
+            liveCardStates: rebuildRunStates(
+              reordered,
+              currentCard.id,
+              'pending',
+              now
+            ).map((s) =>
+              s.cardId === currentCard.id
+                ? { ...s, startedAt: undefined, endedAt: undefined }
+                : s
+            ),
+            updatedAt: now,
+          };
+          setCards(reordered);
+          setRun(updatedRun);
+          await saveDailyRun(updatedRun);
           triggerFlipReveal();
           break;
         }
         case 'down': {
           setStats((s) => ({ ...s, shuffled: s.shuffled + 1 }));
-          setCards((prev) => {
-            const next = [...prev];
-            const card = next[currentIndex];
-            next.splice(currentIndex, 1);
-            const remaining = next.length - currentIndex;
-            if (remaining <= 0) {
-              next.splice(currentIndex, 0, card);
-            } else {
-              const offset = Math.floor(Math.random() * remaining);
-              next.splice(
-                Math.min(currentIndex + Math.max(offset, 1), next.length),
-                0,
-                card
-              );
-            }
-            return next;
-          });
+          const reordered = [...cards];
+          const card = reordered[currentIndex];
+          reordered.splice(currentIndex, 1);
+          const remaining = reordered.length - currentIndex;
+          if (remaining <= 0) {
+            reordered.splice(currentIndex, 0, card);
+          } else {
+            const offset = Math.floor(Math.random() * remaining);
+            reordered.splice(
+              Math.min(currentIndex + Math.max(offset, 1), reordered.length),
+              0,
+              card
+            );
+          }
+          const updatedRun: DailyRun = {
+            ...run,
+            liveCardStates: rebuildRunStates(
+              reordered,
+              currentCard.id,
+              'pending',
+              now
+            ).map((s) =>
+              s.cardId === currentCard.id
+                ? { ...s, startedAt: undefined, endedAt: undefined }
+                : s
+            ),
+            updatedAt: now,
+          };
+          setCards(reordered);
+          setRun(updatedRun);
+          await saveDailyRun(updatedRun);
           triggerFlipReveal();
           triggerShuffleJitter();
           break;
@@ -340,6 +406,30 @@ export default function PlayScreen({ route, navigation }: Props) {
     totalSwiped.current = Math.max(0, totalSwiped.current - 1);
     triggerFlipReveal();
   }, [undoSnapshot, run, triggerFlipReveal]);
+
+  // Stamp startedAt on whatever card is currently on top. Runs when the
+  // current card changes (after swipes, reorders, or initial load) and
+  // only writes if the card's startedAt hasn't already been set.
+  useEffect(() => {
+    if (!run || paused) return;
+    const currentCard = cards[currentIndex];
+    if (!currentCard) return;
+    const idx = run.liveCardStates.findIndex(
+      (s) => s.cardId === currentCard.id
+    );
+    if (idx < 0) return;
+    const state = run.liveCardStates[idx];
+    if (state.startedAt || state.status !== 'pending') return;
+    const updatedStates = [...run.liveCardStates];
+    updatedStates[idx] = { ...state, startedAt: Date.now() };
+    const updated: DailyRun = {
+      ...run,
+      liveCardStates: updatedStates,
+      updatedAt: Date.now(),
+    };
+    setRun(updated);
+    saveDailyRun(updated);
+  }, [cards, currentIndex, run, paused]);
 
   const handleLongPressDismiss = useCallback(async () => {
     setPaused(true);

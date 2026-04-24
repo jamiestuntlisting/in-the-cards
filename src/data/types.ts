@@ -36,6 +36,10 @@ export interface LiveCardState {
   cardId: string;
   status: 'pending' | 'complete' | 'skipped' | 'deferred' | 'shuffled';
   position: number;
+  /** When the card first became the top card of the deck (ms since epoch). */
+  startedAt?: number;
+  /** When the card was swiped (complete/skip terminal swipes, ms since epoch). */
+  endedAt?: number;
 }
 
 export interface CompletionLog {

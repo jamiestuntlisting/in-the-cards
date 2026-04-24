@@ -1,4 +1,4 @@
-import type { Card, Deck, CompletionLog } from './types';
+import type { Card, Deck, CompletionLog, DailyRun } from './types';
 
 export interface StatsSummary {
   totalSwipes: number;
@@ -253,3 +253,41 @@ export function computeBestDayOfWeek(
 
   return best.rate >= 0 ? best : null;
 }
+
+/**
+ * Average wall-clock duration (ms) of all complete runs for a given deck.
+ * Returns null if the deck has never been completed.
+ *
+ * A "run duration" is updatedAt - startedAt on a DailyRun whose status
+ * is 'complete'. This includes any time the deck spent paused.
+ */
+export function computeDeckAvgRunMs(
+  runs: DailyRun[],
+  deckId: string
+): number | null {
+  const completed = runs.filter(
+    (r) => r.deckId === deckId && r.status === 'complete'
+  );
+  if (completed.length === 0) return null;
+  const total = completed.reduce(
+    (sum, r) => sum + Math.max(0, r.updatedAt - r.startedAt),
+    0
+  );
+  return Math.round(total / completed.length);
+}
+
+/**
+ * Formatted duration string from ms — "12s", "1m 34s", "1h 4m".
+ * Used for the avg-run display on Deck Detail.
+ */
+export function formatDuration(ms: number): string {
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes >= 5) return `${minutes}m`;
+  return `${minutes}m ${seconds}s`;
+}
+
