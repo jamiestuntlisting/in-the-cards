@@ -16,6 +16,7 @@ import {
   getDeck,
   saveDeck,
   saveCard,
+  appendCardsToActiveRun,
   generateId,
 } from '../data/storage';
 import {
@@ -94,6 +95,7 @@ export default function CardPickerScreen({ route, navigation }: Props) {
       ],
     };
     await saveDeck(updated);
+    await appendCardsToActiveRun(deck.id, [card.id]);
     navigation.goBack();
   };
 
@@ -116,6 +118,7 @@ export default function CardPickerScreen({ route, navigation }: Props) {
       ],
     };
     await saveDeck(updated);
+    await appendCardsToActiveRun(deck.id, [newCard.id]);
     navigation.goBack();
   };
 

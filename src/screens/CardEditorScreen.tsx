@@ -15,6 +15,7 @@ import {
   deleteCard,
   getDeck,
   saveDeck,
+  appendCardsToActiveRun,
   generateId,
 } from '../data/storage';
 import {
@@ -86,6 +87,8 @@ export default function CardEditorScreen({ route, navigation }: Props) {
           positionInDeck: deck.cardRefs.length,
         });
         await saveDeck(deck);
+        // Also append to today's active run so it appears in the live deck
+        await appendCardsToActiveRun(deckId, [card.id]);
       }
     }
 

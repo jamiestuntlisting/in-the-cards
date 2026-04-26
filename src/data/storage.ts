@@ -174,6 +174,39 @@ export async function saveDailyRun(run: DailyRun): Promise<void> {
   await setJSON(KEYS.DAILY_RUNS, runs);
 }
 
+/**
+ * Append new card IDs to today's active DailyRun for `deckId`, if one exists
+ * and is in-progress or paused. Idempotent — already-present cards are skipped.
+ *
+ * Use this when a card is added to a deck while the user is mid-session, so
+ * the new card shows up in the live deck without restarting.
+ */
+export async function appendCardsToActiveRun(
+  deckId: string,
+  cardIds: string[]
+): Promise<void> {
+  if (cardIds.length === 0) return;
+  const today = todayString();
+  const run = await getDailyRun(deckId, today);
+  if (!run) return; // no run yet today — fresh play will pick up the new cards
+  if (run.status === 'complete') return; // already done; don't reopen
+  const existing = new Set(run.liveCardStates.map((s) => s.cardId));
+  const toAdd = cardIds.filter((id) => !existing.has(id));
+  if (toAdd.length === 0) return;
+  const basePos = run.liveCardStates.length;
+  const newStates = toAdd.map((cardId, i) => ({
+    cardId,
+    status: 'pending' as const,
+    position: basePos + i,
+  }));
+  const updated: DailyRun = {
+    ...run,
+    liveCardStates: [...run.liveCardStates, ...newStates],
+    updatedAt: Date.now(),
+  };
+  await saveDailyRun(updated);
+}
+
 // ─── Completion Logs ───
 
 export async function getAllLogs(): Promise<CompletionLog[]> {

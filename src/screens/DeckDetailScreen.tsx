@@ -21,6 +21,7 @@ import {
   getAllDailyRuns,
   saveDailyRun,
   saveCard,
+  appendCardsToActiveRun,
   generateId,
   todayString,
 } from '../data/storage';
@@ -181,8 +182,14 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
       ],
     };
     await saveDeck(updated);
+    // If the user is mid-session, also append to today's live run so the
+    // new card shows up in the deck they're already playing.
+    await appendCardsToActiveRun(deck.id, [newCard.id]);
     setDeck(updated);
     setCards((prev) => [...prev, newCard]);
+    // Refresh today's run state so any subsequent renders reflect the change
+    const refreshedRun = await getDailyRun(deck.id, todayString());
+    setTodayRun(refreshedRun ?? null);
     setComposer(emptyComposer);
   };
 

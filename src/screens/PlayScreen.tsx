@@ -92,16 +92,40 @@ export default function PlayScreen({ route, navigation }: Props) {
   // Load deck + run
   useEffect(() => {
     (async () => {
-      const [deck, allCards, dailyRun] = await Promise.all([
+      const [deck, allCards, loadedRun] = await Promise.all([
         getDeck(deckId),
         getAllCards(),
         getDailyRun(deckId, date),
       ]);
-      if (!deck || !dailyRun) {
+      if (!deck || !loadedRun) {
         navigation.goBack();
         return;
       }
       setDeckName(deck.name);
+
+      // Reconcile: any cards that were added to the deck after the run was
+      // created should appear at the end of the live deck. This catches any
+      // path that didn't already call appendCardsToActiveRun.
+      let dailyRun = loadedRun;
+      const liveIds = new Set(dailyRun.liveCardStates.map((s) => s.cardId));
+      const missingDeckIds = deck.cardRefs
+        .map((r) => r.cardId)
+        .filter((id) => !liveIds.has(id));
+      if (missingDeckIds.length > 0 && dailyRun.status !== 'complete') {
+        const basePos = dailyRun.liveCardStates.length;
+        const newStates = missingDeckIds.map((cardId, i) => ({
+          cardId,
+          status: 'pending' as const,
+          position: basePos + i,
+        }));
+        dailyRun = {
+          ...dailyRun,
+          liveCardStates: [...dailyRun.liveCardStates, ...newStates],
+          updatedAt: Date.now(),
+        };
+        await saveDailyRun(dailyRun);
+      }
+
       setRun(dailyRun);
 
       // Build ordered card list from run's liveCardStates
