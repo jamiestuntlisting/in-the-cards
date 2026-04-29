@@ -38,7 +38,7 @@ export type SwipeDirection = 'right' | 'left' | 'up' | 'down';
 interface SwipeableCardProps {
   card: CardData;
   onSwipe: (direction: SwipeDirection) => void;
-  onLongPressDismiss: () => void;
+  onLongPress: () => void;
   /** Flip-reveal: 0 = face-down (rotated), 1 = face-up */
   flipProgress: Animated.SharedValue<number>;
 }
@@ -51,7 +51,7 @@ const VELOCITY_THRESHOLD = 500;
 export default function SwipeableCard({
   card,
   onSwipe,
-  onLongPressDismiss,
+  onLongPress,
   flipProgress,
 }: SwipeableCardProps) {
   const translateX = useSharedValue(0);
@@ -183,10 +183,10 @@ export default function SwipeableCard({
     });
 
   const longPressGesture = Gesture.LongPress()
-    .minDuration(1000)
+    .minDuration(500)
     .maxDistance(15)
     .onStart(() => {
-      runOnJS(onLongPressDismiss)();
+      runOnJS(onLongPress)();
     });
 
   const composed = Gesture.Exclusive(panGesture, longPressGesture);

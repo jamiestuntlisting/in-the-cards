@@ -16,6 +16,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import type { Card, Deck, DailyRun, LiveCardState } from '../data/types';
 import {
@@ -170,6 +171,25 @@ export default function PlayScreen({ route, navigation }: Props) {
       setLoading(false);
     })();
   }, [deckId, date, navigation]);
+
+  // When the user returns from the Card Editor, the card they edited may
+  // have a new title / blocks / timer. Refresh the cards array in place
+  // (preserving order + currentIndex) so the live deck reflects edits.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const allCards = await getAllCards();
+        if (cancelled) return;
+        setCards((prev) =>
+          prev.map((c) => allCards.find((x) => x.id === c.id) ?? c)
+        );
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   const triggerFlipReveal = useCallback(() => {
     flipProgress.value = 0;
@@ -360,20 +380,11 @@ export default function PlayScreen({ route, navigation }: Props) {
         }
         case 'down': {
           setStats((s) => ({ ...s, shuffled: s.shuffled + 1 }));
+          // Send card to the bottom of the deck (last position).
           const reordered = [...cards];
           const card = reordered[currentIndex];
           reordered.splice(currentIndex, 1);
-          const remaining = reordered.length - currentIndex;
-          if (remaining <= 0) {
-            reordered.splice(currentIndex, 0, card);
-          } else {
-            const offset = Math.floor(Math.random() * remaining);
-            reordered.splice(
-              Math.min(currentIndex + Math.max(offset, 1), reordered.length),
-              0,
-              card
-            );
-          }
+          reordered.push(card);
           const updatedRun: DailyRun = {
             ...run,
             liveCardStates: rebuildRunStates(
@@ -455,14 +466,16 @@ export default function PlayScreen({ route, navigation }: Props) {
     saveDailyRun(updated);
   }, [cards, currentIndex, run, paused]);
 
-  const handleLongPressDismiss = useCallback(async () => {
-    setPaused(true);
-    if (run) {
-      const updated = { ...run, status: 'paused' as const, updatedAt: Date.now() };
-      setRun(updated);
-      await saveDailyRun(updated);
-    }
-  }, [run]);
+  // Long-press the current card → jump to its editor. Returning here will
+  // refresh the card data (see the focus listener below).
+  const handleLongPressEdit = useCallback(() => {
+    const currentCard = cards[currentIndex];
+    if (!currentCard) return;
+    navigation.navigate('CardEditor', {
+      cardId: currentCard.id,
+      deckId,
+    });
+  }, [cards, currentIndex, deckId, navigation]);
 
   const handleResume = useCallback(async () => {
     setPaused(false);
@@ -507,9 +520,9 @@ export default function PlayScreen({ route, navigation }: Props) {
           e.preventDefault();
           handleSwipe('down');
           break;
-        case 'p':
+        case 'e':
           e.preventDefault();
-          handleLongPressDismiss();
+          handleLongPressEdit();
           break;
         case 'Escape':
           e.preventDefault();
@@ -519,7 +532,7 @@ export default function PlayScreen({ route, navigation }: Props) {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [paused, currentIndex, cards.length, handleSwipe, handleLongPressDismiss, handleUndo, navigation]);
+  }, [paused, currentIndex, cards.length, handleSwipe, handleLongPressEdit, handleUndo, navigation]);
 
   if (loading) {
     return (
@@ -639,7 +652,7 @@ export default function PlayScreen({ route, navigation }: Props) {
               key={`${currentCard.id}-${currentIndex}`}
               card={currentCard}
               onSwipe={handleSwipe}
-              onLongPressDismiss={handleLongPressDismiss}
+              onLongPress={handleLongPressEdit}
               flipProgress={flipProgress}
             />
           )}
@@ -654,11 +667,6 @@ export default function PlayScreen({ route, navigation }: Props) {
         </Pressable>
       )}
 
-      <Text style={styles.hint}>
-        {Platform.OS === 'web'
-          ? 'Long-press to pause  \u2022  arrows to swipe  \u2022  \u2318Z to undo'
-          : 'Long-press to pause deck'}
-      </Text>
     </ScreenContainer>
   );
 }
