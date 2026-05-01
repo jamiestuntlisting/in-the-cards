@@ -12,10 +12,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import type { Deck, DailyRun } from '../data/types';
 import {
+  ensureDailyRun,
   getAllDecks,
   getAllDailyRuns,
   getDailyRun,
-  saveDailyRun,
   todayString,
 } from '../data/storage';
 import {
@@ -77,41 +77,16 @@ export default function DeckListScreen({ navigation }: Props) {
       return;
     }
 
-    let run = await getDailyRun(deck.id, today);
-    if (run?.status === 'complete') {
+    const existing = await getDailyRun(deck.id, today);
+    if (existing?.status === 'complete') {
       navigation.navigate('DeckDetail', { deckId: deck.id });
       return;
     }
 
+    const run = await ensureDailyRun(deck, today);
     if (!run) {
-      let orderedIds = deck.cardRefs
-        .sort((a, b) => a.positionInDeck - b.positionInDeck)
-        .map((r) => r.cardId);
-
-      if (deck.orderMode === 'random') {
-        for (let i = orderedIds.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [orderedIds[i], orderedIds[j]] = [orderedIds[j], orderedIds[i]];
-        }
-      }
-
-      run = {
-        date: today,
-        deckId: deck.id,
-        liveCardStates: orderedIds.map((cardId, i) => ({
-          cardId,
-          status: 'pending' as const,
-          position: i,
-        })),
-        status: 'in-progress',
-        startedAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      await saveDailyRun(run);
-    } else if (run.status === 'paused') {
-      run.status = 'in-progress';
-      run.updatedAt = Date.now();
-      await saveDailyRun(run);
+      navigation.navigate('DeckDetail', { deckId: deck.id });
+      return;
     }
 
     navigation.navigate('Play', { deckId: deck.id, date: today });
@@ -147,7 +122,7 @@ export default function DeckListScreen({ navigation }: Props) {
             <Text style={styles.topLink}>Stats</Text>
           </Pressable>
           <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={8}>
-            <SettingsIcon size={22} color={color.link} />
+            <SettingsIcon size={22} color={color.linkOnFelt} />
           </Pressable>
         </View>
       </View>
@@ -220,7 +195,7 @@ export default function DeckListScreen({ navigation }: Props) {
                         </View>
                       </View>
                       <View style={styles.addBtnRow}>
-                        <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
+                        <PlusIcon size={14} color={color.linkOnFelt} strokeWidth={2.2} />
                         <Text style={styles.addBtn}>Add</Text>
                       </View>
                     </Pressable>
@@ -267,7 +242,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: fontSize.displayM,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
   },
@@ -280,7 +255,7 @@ const styles = StyleSheet.create({
   topLink: {
     fontFamily: font.text,
     fontSize: fontSize.ui,
-    color: color.link,
+    color: color.linkOnFelt,
     fontWeight: fontWeight.medium,
   },
   list: { paddingHorizontal: space[4], paddingBottom: 120 },
@@ -331,7 +306,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     textAlign: 'center',
-    color: color.fg4,
+    color: color.fgOnFelt2,
     fontSize: fontSize.body,
     marginTop: space[8],
     fontFamily: font.text,
@@ -341,13 +316,13 @@ const styles = StyleSheet.create({
     marginTop: space[5],
     paddingTop: space[4],
     borderTopWidth: 1,
-    borderTopColor: color.hairline,
+    borderTopColor: color.hairlineOnFelt,
   },
   templateHeading: {
     fontFamily: font.text,
     fontSize: fontSize.label,
     fontWeight: fontWeight.semibold,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     textTransform: 'uppercase',
     letterSpacing: letterSpacing.label,
     marginBottom: space[3],
@@ -355,26 +330,26 @@ const styles = StyleSheet.create({
   templateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: color.bgSurface,
+    backgroundColor: 'rgba(250, 246, 239, 0.08)',
     borderRadius: radius.l,
     padding: space[3] + 2,
     marginBottom: space[2],
     borderWidth: 1,
-    borderColor: color.hairline,
+    borderColor: color.hairlineOnFelt,
     borderStyle: 'dashed',
   },
   templateName: {
     fontFamily: font.display,
     fontSize: fontSize.bodyL,
     fontWeight: fontWeight.regular,
-    color: color.fg2,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
   },
   templateMeta: {
     fontFamily: font.text,
     fontSize: fontSize.bodyS,
-    color: color.fg4,
+    color: color.fgOnFelt3,
   },
   addBtnRow: {
     flexDirection: 'row',
@@ -385,7 +360,7 @@ const styles = StyleSheet.create({
     fontFamily: font.text,
     fontSize: fontSize.bodyS,
     fontWeight: fontWeight.semibold,
-    color: color.link,
+    color: color.linkOnFelt,
   },
   fab: {
     position: 'absolute',

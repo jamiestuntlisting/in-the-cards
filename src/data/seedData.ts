@@ -109,6 +109,8 @@ const TUTORIAL_DECK_DEF: Omit<Deck, 'createdAt'> = {
 export interface DeckTemplate {
   name: string;
   orderMode: 'fixed' | 'random';
+  /** When this deck wants the user's attention (HH:MM, 24-hour). */
+  trigger?: { time: string };
   cards: { title: string; timer?: number }[];
 }
 
@@ -116,6 +118,7 @@ export const DECK_TEMPLATES: DeckTemplate[] = [
   {
     name: 'Morning',
     orderMode: 'fixed',
+    trigger: { time: '07:00' },
     cards: [
       { title: 'Drink a bottle of water' },
       { title: 'Drink tea' },
@@ -129,6 +132,7 @@ export const DECK_TEMPLATES: DeckTemplate[] = [
   {
     name: 'Afternoon',
     orderMode: 'random',
+    trigger: { time: '13:00' },
     cards: [
       { title: 'Stand up and stretch', timer: 60 },
       { title: 'Drink a glass of water' },
@@ -141,6 +145,7 @@ export const DECK_TEMPLATES: DeckTemplate[] = [
   {
     name: 'Evening',
     orderMode: 'fixed',
+    trigger: { time: '20:00' },
     cards: [
       { title: 'Put phone on charger across the room' },
       { title: 'Journal', timer: 300 },
@@ -172,12 +177,26 @@ export async function createDeckFromTemplate(
     id: generateId(),
     name: template.name,
     orderMode: template.orderMode,
+    trigger: template.trigger,
     cardRefs: cards.map((c, i) => ({ cardId: c.id, positionInDeck: i })),
     createdAt: now,
   };
   await saveDeck(deck);
   return deck;
 }
+
+/**
+ * Default trigger times by template name. Used when migrating older decks
+ * that were created before triggers were added — if a deck's name matches
+ * a known template, we backfill the trigger so time-of-day routing works.
+ */
+export const TEMPLATE_DEFAULT_TRIGGERS: Record<string, string> =
+  Object.fromEntries(
+    DECK_TEMPLATES.filter((t) => t.trigger).map((t) => [
+      t.name,
+      t.trigger!.time,
+    ])
+  );
 
 // ─── Tutorial card ID prefix — used to filter out of library pickers ───
 export const TUTORIAL_CARD_IDS = new Set(TUTORIAL_CARDS.map((c) => c.id));

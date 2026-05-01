@@ -168,7 +168,7 @@ export default function GoalsScreen({ navigation }: Props) {
           style={styles.backBtn}
           hitSlop={8}
         >
-          <ChevronLeftIcon size={22} color={color.link} strokeWidth={2.2} />
+          <ChevronLeftIcon size={22} color={color.linkOnFelt} strokeWidth={2.2} />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
       </View>
@@ -309,13 +309,13 @@ const styles = StyleSheet.create({
   backText: {
     fontFamily: font.text,
     fontSize: fontSize.ui,
-    color: color.link,
+    color: color.linkOnFelt,
   },
   heading: {
     fontFamily: font.display,
     fontSize: fontSize.displayM,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
     paddingHorizontal: space[5],
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   empty: {
     fontFamily: font.text,
     textAlign: 'center',
-    color: color.fg4,
+    color: color.fgOnFelt3,
     fontSize: fontSize.body,
     marginTop: space[8],
   },

@@ -30,6 +30,7 @@ import {
 } from '../design/tokens';
 import CardComposer, { type CardState } from '../components/CardComposer';
 import ScreenContainer from '../components/ScreenContainer';
+import { identityFor } from '../cardIdentity';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CardEditor'>;
 
@@ -43,6 +44,9 @@ export default function CardEditorScreen({ route, navigation }: Props) {
     timerSeconds: undefined,
     link: undefined,
   });
+  // Card position in the deck — drives which playing-card identity we deal.
+  // Defaults to "next slot at the end" until the deck loads.
+  const [originalPosition, setOriginalPosition] = useState<number>(0);
 
   useEffect(() => {
     if (cardId) {
@@ -58,6 +62,20 @@ export default function CardEditorScreen({ route, navigation }: Props) {
       });
     }
   }, [cardId]);
+
+  useEffect(() => {
+    if (!deckId) return;
+    getDeck(deckId).then((deck) => {
+      if (!deck) return;
+      if (cardId) {
+        const ref = deck.cardRefs.find((r) => r.cardId === cardId);
+        if (ref) setOriginalPosition(ref.positionInDeck);
+      } else {
+        // New card → it'll be appended at the next slot.
+        setOriginalPosition(deck.cardRefs.length);
+      }
+    });
+  }, [deckId, cardId]);
 
   const handleSave = async () => {
     if (!state.title.trim()) {
@@ -122,7 +140,14 @@ export default function CardEditorScreen({ route, navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <CardComposer state={state} onChange={setState} size="full" />
+        <CardComposer
+          state={state}
+          onChange={setState}
+          size="full"
+          identity={
+            deckId ? identityFor(deckId, originalPosition) : undefined
+          }
+        />
 
         {!isNew && (
           <Pressable style={styles.deleteBtn} onPress={handleDelete}>
@@ -143,25 +168,25 @@ const styles = StyleSheet.create({
     paddingTop: space[9],
     paddingBottom: space[3],
     borderBottomWidth: 1,
-    borderBottomColor: color.hairline,
+    borderBottomColor: color.hairlineOnFelt,
   },
   cancel: {
     fontFamily: font.text,
     fontSize: fontSize.body,
-    color: color.fg3,
+    color: color.fgOnFelt2,
   },
   headerTitle: {
     fontFamily: font.display,
     fontSize: fontSize.displayS,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
   },
   save: {
     fontFamily: font.text,
     fontSize: fontSize.body,
-    color: color.link,
+    color: color.linkOnFelt,
     fontWeight: fontWeight.semibold,
   },
   scroll: { flex: 1 },

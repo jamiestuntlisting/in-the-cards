@@ -21,13 +21,19 @@ import {
   suitTint,
 } from '../design/tokens';
 import {
-  HeartIcon,
   TimerIcon,
   PlusIcon,
   SkipIcon,
   ChevronUpIcon,
   ChevronDownIcon,
 } from '../design/icons';
+import { CARD_WIDTH, CARD_HEIGHT } from '../cardDimensions';
+import {
+  type CardIdentity,
+  DEFAULT_IDENTITY,
+  colorForSuit,
+} from '../cardIdentity';
+import { SuitGlyph } from '../SwipeableCard';
 import type { ContentBlock } from '../data/types';
 
 export interface CardState {
@@ -42,6 +48,8 @@ interface Props {
   onChange: (next: CardState) => void;
   /** Visual size — "full" for the edit screen, "inline" for compact use on Deck Detail */
   size?: 'full' | 'inline';
+  /** Playing-card identity — if omitted, defaults to Ace of Hearts. */
+  identity?: CardIdentity;
 }
 
 /**
@@ -53,8 +61,10 @@ export default function CardComposer({
   state,
   onChange,
   size = 'full',
+  identity = DEFAULT_IDENTITY,
 }: Props) {
   const { title, blocks, timerSeconds, link } = state;
+  const pipColor = colorForSuit(identity.suit);
 
   const set = (patch: Partial<CardState>) => onChange({ ...state, ...patch });
 
@@ -90,14 +100,47 @@ export default function CardComposer({
     size === 'inline' ? styles.bodyTextInline : styles.bodyTextFull;
   const imageStyle = size === 'inline' ? styles.imageInline : styles.imageFull;
 
+  const isFull = size === 'full';
+  const cornerSize = isFull ? 20 : 14;
+  const cornerRankStyle = isFull ? styles.cornerRank : styles.cornerRankInline;
+
   return (
     <View style={styles.wrap}>
       <View style={[styles.card, cardStyle]}>
-        <View style={styles.cornerSuit}>
-          <HeartIcon size={16} color={suit.heart} strokeWidth={1.5} />
+        <View style={styles.innerFrame} pointerEvents="none" />
+        {isFull && (
+          <View style={styles.watermark} pointerEvents="none">
+            <SuitGlyph
+              suit={identity.suit}
+              size={220}
+              color={pipColor}
+              strokeWidth={1}
+            />
+          </View>
+        )}
+
+        <View style={styles.cornerTL} pointerEvents="none">
+          <Text style={[cornerRankStyle, { color: pipColor }]}>
+            {identity.rank}
+          </Text>
+          <SuitGlyph
+            suit={identity.suit}
+            size={cornerSize}
+            color={pipColor}
+          />
+        </View>
+        <View style={styles.cornerBR} pointerEvents="none">
+          <Text style={[cornerRankStyle, { color: pipColor }]}>
+            {identity.rank}
+          </Text>
+          <SuitGlyph
+            suit={identity.suit}
+            size={cornerSize}
+            color={pipColor}
+          />
         </View>
 
-        <View style={styles.cardContent}>
+        <View style={isFull ? styles.cardContent : styles.cardContentInline}>
           <TextInput
             value={title}
             onChangeText={(v) => set({ title: v })}
@@ -306,13 +349,13 @@ function BlockEditor({
 }
 
 // ─── Sizing ───
-const FULL_WIDTH = 320;
-const FULL_HEIGHT = Math.round(FULL_WIDTH * (7 / 5));
+// Full = exact match to play-view card so wrapping is WYSIWYG.
+// Inline = compact size for Deck Detail rows.
 const INLINE_WIDTH = 260;
 const INLINE_HEIGHT = Math.round(INLINE_WIDTH * (7 / 5));
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center' },
+  wrap: { alignItems: 'center', width: '100%' },
   card: {
     backgroundColor: color.bgRaised,
     borderRadius: radius.l,
@@ -321,32 +364,86 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadow.card,
   },
-  cardFull: { width: FULL_WIDTH, height: FULL_HEIGHT },
+  cardFull: { width: CARD_WIDTH, height: CARD_HEIGHT },
   cardInline: { width: INLINE_WIDTH, height: INLINE_HEIGHT },
-  cornerSuit: {
+  innerFrame: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    bottom: 8,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.cardInnerFrame,
+    zIndex: 0,
+  },
+  watermark: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.05,
+    zIndex: 0,
+  },
+  cornerTL: {
     position: 'absolute',
     top: space[3],
-    left: space[3],
-    opacity: 0.85,
-    zIndex: 1,
+    left: space[3] + 2,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  cornerBR: {
+    position: 'absolute',
+    bottom: space[3],
+    right: space[3] + 2,
+    alignItems: 'center',
+    zIndex: 2,
+    transform: [{ rotate: '180deg' }],
+  },
+  cornerRank: {
+    fontFamily: font.display,
+    fontSize: 22,
+    lineHeight: 22,
+    fontWeight: fontWeight.regular,
+    marginBottom: 2,
+  },
+  cornerRankInline: {
+    fontFamily: font.display,
+    fontSize: 14,
+    lineHeight: 14,
+    fontWeight: fontWeight.regular,
+    marginBottom: 1,
   },
   cardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: space[6],
+    paddingTop: space[8],
+    gap: space[2],
+    zIndex: 1,
+  },
+  cardContentInline: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: space[4],
     paddingTop: space[7],
     gap: space[2],
+    zIndex: 1,
   },
   titleFull: {
     fontFamily: font.display,
-    fontSize: fontSize.displayM,
+    fontSize: fontSize.displayL,
     fontWeight: fontWeight.regular,
     color: color.fg1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
     textAlign: 'center',
-    lineHeight: fontSize.displayM * lineHeight.display,
+    lineHeight: fontSize.displayL * lineHeight.display,
     minWidth: 180,
     paddingVertical: 2,
   },
@@ -364,8 +461,8 @@ const styles = StyleSheet.create({
   },
   bodyTextFull: {
     fontFamily: font.text,
-    fontSize: fontSize.body,
-    lineHeight: fontSize.body * lineHeight.body,
+    fontSize: fontSize.bodyL,
+    lineHeight: fontSize.bodyL * lineHeight.body,
     color: color.fg2,
     textAlign: 'center',
     flex: 1,
@@ -381,10 +478,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   imageFull: {
-    width: FULL_WIDTH - space[4] * 2,
-    height: 100,
+    width: CARD_WIDTH - space[6] * 2,
+    height: 160,
     borderRadius: radius.s,
-    marginBottom: space[2],
+    marginBottom: space[3],
   },
   imageInline: {
     width: INLINE_WIDTH - space[4] * 2,
@@ -396,10 +493,11 @@ const styles = StyleSheet.create({
   blockRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    width: '100%',
+    alignSelf: 'stretch',
+    minWidth: 0,
     gap: 4,
   },
-  blockMain: { flex: 1 },
+  blockMain: { flex: 1, minWidth: 0 },
   blockControls: {
     flexDirection: 'column',
     gap: 3,
@@ -410,6 +508,7 @@ const styles = StyleSheet.create({
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'stretch',
     gap: 6,
     backgroundColor: suitTint.club,
     paddingHorizontal: space[2] + 2,
@@ -422,7 +521,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodyS,
     color: suit.club,
     fontWeight: fontWeight.semibold,
-    minWidth: 30,
+    width: 60,
     textAlign: 'center',
     padding: 0,
   },
@@ -430,17 +529,20 @@ const styles = StyleSheet.create({
     fontFamily: font.text,
     fontSize: fontSize.micro,
     color: suit.club,
+    flex: 1,
   },
   // Link row inside card
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    width: '100%',
+    alignSelf: 'stretch',
+    minWidth: 0,
     marginTop: space[1] + 2,
   },
   linkInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: font.text,
     fontSize: fontSize.bodyS,
     color: color.link,
