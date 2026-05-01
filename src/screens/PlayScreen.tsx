@@ -35,6 +35,7 @@ import {
 import SwipeableCard, { SwipeDirection } from '../SwipeableCard';
 import CardStack from '../CardStack';
 import DeckComplete from '../DeckComplete';
+import { identityFor } from '../cardIdentity';
 import { CARD_WIDTH, CARD_HEIGHT } from '../cardDimensions';
 import {
   color,
@@ -60,6 +61,15 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Play'>;
 export default function PlayScreen({ route, navigation }: Props) {
   const { deckId, date } = route.params;
   const [deckName, setDeckName] = useState('');
+  /**
+   * Map of cardId → its original position in the deck definition. Used to
+   * deal a stable playing-card identity (Ace of Hearts, King of Spades…) per
+   * card. We snapshot it once at load time so reorders during the run don't
+   * change a card's identity.
+   */
+  const [originalPositionByCardId, setOriginalPositionByCardId] = useState<
+    Record<string, number>
+  >({});
   const [cards, setCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [run, setRun] = useState<DailyRun | null>(null);
@@ -103,6 +113,12 @@ export default function PlayScreen({ route, navigation }: Props) {
         return;
       }
       setDeckName(deck.name);
+      // Snapshot original positions for identity-dealing
+      const posMap: Record<string, number> = {};
+      for (const ref of deck.cardRefs) {
+        posMap[ref.cardId] = ref.positionInDeck;
+      }
+      setOriginalPositionByCardId(posMap);
 
       // Reconcile: any cards that were added to the deck after the run was
       // created should appear at the end of the live deck. This catches any
@@ -636,7 +652,7 @@ export default function PlayScreen({ route, navigation }: Props) {
           style={styles.backBtn}
           hitSlop={8}
         >
-          <ChevronLeftIcon size={24} color={color.link} strokeWidth={2.2} />
+          <ChevronLeftIcon size={24} color={color.linkOnFelt} strokeWidth={2.2} />
         </Pressable>
         <Text style={styles.headerTitle}>{deckName}</Text>
         <Text style={styles.counter}>
@@ -646,11 +662,21 @@ export default function PlayScreen({ route, navigation }: Props) {
 
       <View style={styles.cardArea}>
         <View style={styles.cardAnchor}>
-          <CardStack cards={remainingCards} shuffleJitter={shuffleJitter} />
+          <CardStack
+            cards={remainingCards}
+            identities={remainingCards.map((c) =>
+              identityFor(deckId, originalPositionByCardId[c.id] ?? 0)
+            )}
+            shuffleJitter={shuffleJitter}
+          />
           {currentCard && (
             <SwipeableCard
               key={`${currentCard.id}-${currentIndex}`}
               card={currentCard}
+              identity={identityFor(
+                deckId,
+                originalPositionByCardId[currentCard.id] ?? 0
+              )}
               onSwipe={handleSwipe}
               onLongPress={handleLongPressEdit}
               flipProgress={flipProgress}
@@ -694,7 +720,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: fontSize.displayS,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
   },
@@ -702,7 +728,7 @@ const styles = StyleSheet.create({
     fontFamily: font.mono,
     fontSize: fontSize.counter,
     fontWeight: fontWeight.medium,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     fontVariant: ['tabular-nums'],
   },
   cardArea: {
@@ -751,7 +777,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: fontSize.displayL,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
     marginBottom: space[2],
@@ -759,7 +785,7 @@ const styles = StyleSheet.create({
   pausedSubtitle: {
     fontFamily: font.text,
     fontSize: fontSize.body,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     marginBottom: space[7],
   },
   resumeButton: {
@@ -783,7 +809,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontFamily: font.text,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     fontSize: fontSize.ui,
     fontWeight: fontWeight.medium,
   },

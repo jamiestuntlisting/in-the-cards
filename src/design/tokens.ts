@@ -6,10 +6,18 @@
 // ─── Paper palette (warm creams) ───
 export const paper = {
   0: '#FAF6EF', // lightest — highlight / card face
-  1: '#F3EDE2', // page background
+  1: '#F3EDE2', // page background (legacy — surfaces that should still read as paper)
   2: '#ECE4D6', // subtle raised surface
   3: '#E1D7C5', // hairline / divider
   4: '#C9BDA7', // disabled / placeholder
+};
+
+// ─── Poker felt — page background, the table the cards sit on ───
+export const felt = {
+  base: '#0F4C2E', // primary felt green
+  raised: '#155838', // slightly lighter for raised surfaces / pressed inks
+  hairline: '#0A3621', // darker green for dividers on felt
+  rim: '#5A3818', // warm wood-rim accent (not used heavily — felt edge if needed)
 };
 
 // ─── Ink palette (warm near-blacks) ───
@@ -46,7 +54,8 @@ export const signal = {
 
 // ─── Semantic aliases ───
 export const color = {
-  bgPage: paper[1],
+  bgPage: felt.base, // poker-table green — every screen sits on the felt
+  bgPagePaper: paper[1], // legacy paper bg, retained for surfaces that still want cream
   bgSurface: paper[0],
   bgRaised: '#FFFFFF', // top-of-stack card
   bgSunken: paper[2],
@@ -57,11 +66,18 @@ export const color = {
   fg4: ink[500],
   fgDisabled: ink[400],
 
+  // On-felt foregrounds (when text sits directly on the green table, not on a card)
+  fgOnFelt1: '#FAF6EF',
+  fgOnFelt2: 'rgba(250, 246, 239, 0.78)',
+  fgOnFelt3: 'rgba(250, 246, 239, 0.55)',
+
   hairline: paper[3],
   hairlineSoft: paper[2],
+  hairlineOnFelt: 'rgba(250, 246, 239, 0.18)',
 
   link: signal[500],
   linkHover: signal[400],
+  linkOnFelt: '#9DC2EE', // brighter blue for legibility on dark green
   focusRing: signal[500],
 
   statusComplete: suit.heart,
@@ -70,6 +86,7 @@ export const color = {
   statusShuffled: suit.club,
 
   cardStroke: 'rgba(26, 23, 20, 0.12)', // ink-900 @ 12%
+  cardInnerFrame: 'rgba(26, 23, 20, 0.08)', // inset frame line on a card face
 };
 
 // ─── Type scale ───

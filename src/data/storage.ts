@@ -175,6 +175,52 @@ export async function saveDailyRun(run: DailyRun): Promise<void> {
 }
 
 /**
+ * Get today's run for a deck, creating it on the fly if missing. Mirrors the
+ * "tap a deck on the home screen" path so callers (e.g. time-of-day initial
+ * routing) can land the user directly in Play with the right state. Returns
+ * null if the deck has no cards. Resumes paused runs; leaves complete runs
+ * complete (caller decides what to do).
+ */
+export async function ensureDailyRun(
+  deck: Deck,
+  date: string
+): Promise<DailyRun | null> {
+  if (deck.cardRefs.length === 0) return null;
+  let run = await getDailyRun(deck.id, date);
+  if (!run) {
+    let orderedIds = deck.cardRefs
+      .slice()
+      .sort((a, b) => a.positionInDeck - b.positionInDeck)
+      .map((r) => r.cardId);
+
+    if (deck.orderMode === 'random') {
+      for (let i = orderedIds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [orderedIds[i], orderedIds[j]] = [orderedIds[j], orderedIds[i]];
+      }
+    }
+
+    run = {
+      date,
+      deckId: deck.id,
+      liveCardStates: orderedIds.map((cardId, i) => ({
+        cardId,
+        status: 'pending' as const,
+        position: i,
+      })),
+      status: 'in-progress',
+      startedAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    await saveDailyRun(run);
+  } else if (run.status === 'paused') {
+    run = { ...run, status: 'in-progress', updatedAt: Date.now() };
+    await saveDailyRun(run);
+  }
+  return run;
+}
+
+/**
  * Append new card IDs to today's active DailyRun for `deckId`, if one exists
  * and is in-progress or paused. Idempotent — already-present cards are skipped.
  *

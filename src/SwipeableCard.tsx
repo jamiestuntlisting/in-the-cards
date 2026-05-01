@@ -32,15 +32,70 @@ import {
   DiamondIcon,
   ClubIcon,
 } from './design/icons';
+import {
+  type CardIdentity,
+  DEFAULT_IDENTITY,
+  colorForSuit,
+} from './cardIdentity';
 
 export type SwipeDirection = 'right' | 'left' | 'up' | 'down';
 
 interface SwipeableCardProps {
   card: CardData;
+  identity?: CardIdentity;
   onSwipe: (direction: SwipeDirection) => void;
   onLongPress: () => void;
   /** Flip-reveal: 0 = face-down (rotated), 1 = face-up */
   flipProgress: Animated.SharedValue<number>;
+}
+
+/**
+ * Render a suit using the Unicode card-suit characters as text. We use the
+ * "text-style" variation selector (U+FE0E) so iOS doesn't promote them to
+ * colorful emoji — that would override the suit color we pass in.
+ *
+ * Text glyphs scale up cleanly at any size (e.g. the 220px watermark) where
+ * the multi-shape SVGs (looking at you, club) get awkward.
+ *
+ * `strokeWidth` is accepted for API parity with the SVG icons but ignored —
+ * weight is baked into the glyph.
+ */
+const SUIT_TEXT: Record<CardIdentity['suit'], string> = {
+  heart: '♥︎',
+  spade: '♠︎',
+  diamond: '♦︎',
+  club: '♣︎',
+};
+
+export function SuitGlyph({
+  suit,
+  size,
+  color,
+}: {
+  suit: CardIdentity['suit'];
+  size: number;
+  color: string;
+  /** Ignored — kept so existing callers don't break. */
+  strokeWidth?: number;
+}) {
+  return (
+    <Text
+      style={{
+        fontSize: size,
+        lineHeight: size,
+        color,
+        // Use the system font — its glyphs for ♥♠♦♣ are clean and consistent.
+        fontFamily: 'system-ui, -apple-system, "Segoe UI Symbol", sans-serif',
+        textAlign: 'center',
+        // Some text rendering engines add extra leading; tighten it.
+        includeFontPadding: false,
+      }}
+      // Tell screen readers / a11y the suit name, since the glyph is decorative.
+      accessibilityLabel={suit}
+    >
+      {SUIT_TEXT[suit]}
+    </Text>
+  );
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -50,10 +105,12 @@ const VELOCITY_THRESHOLD = 500;
 
 export default function SwipeableCard({
   card,
+  identity = DEFAULT_IDENTITY,
   onSwipe,
   onLongPress,
   flipProgress,
 }: SwipeableCardProps) {
+  const pipColor = colorForSuit(identity.suit);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const cardRotation = useSharedValue(0);
@@ -222,9 +279,32 @@ export default function SwipeableCard({
   return (
     <GestureDetector gesture={composed}>
       <Animated.View style={[styles.card, cardAnimatedStyle]}>
-        {/* Suit corner mark (top-left, decorative — no swipe direction bias) */}
-        <View style={styles.cornerSuit}>
-          <HeartIcon size={16} color={suit.heart} strokeWidth={1.5} />
+        {/* Inner frame — gives the card the inset look of a real playing card */}
+        <View style={styles.innerFrame} pointerEvents="none" />
+
+        {/* Faint center watermark — the card's own suit, behind content */}
+        <View style={styles.watermark} pointerEvents="none">
+          <SuitGlyph
+            suit={identity.suit}
+            size={220}
+            color={pipColor}
+            strokeWidth={1}
+          />
+        </View>
+
+        {/* Corner pip — top-left rank+suit stack, classic playing-card layout */}
+        <View style={styles.cornerTL} pointerEvents="none">
+          <Text style={[styles.cornerRank, { color: pipColor }]}>
+            {identity.rank}
+          </Text>
+          <SuitGlyph suit={identity.suit} size={20} color={pipColor} />
+        </View>
+        {/* Corner pip — bottom-right, rotated 180° to mirror the top-left */}
+        <View style={styles.cornerBR} pointerEvents="none">
+          <Text style={[styles.cornerRank, { color: pipColor }]}>
+            {identity.rank}
+          </Text>
+          <SuitGlyph suit={identity.suit} size={20} color={pipColor} />
         </View>
 
         {/* Swipe direction hints (suit glyphs) */}
@@ -295,19 +375,60 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadow.card,
   },
-  cornerSuit: {
+  // Inset hairline that gives the card a framed, printed-card look
+  innerFrame: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    bottom: 8,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.cardInnerFrame,
+    zIndex: 0,
+  },
+  // Big faded heart behind the title — like the suit watermarks on real cards
+  watermark: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.05,
+    zIndex: 0,
+  },
+  cornerTL: {
     position: 'absolute',
     top: space[3],
-    left: space[3],
-    zIndex: 1,
-    opacity: 0.85,
+    left: space[3] + 2,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  cornerBR: {
+    position: 'absolute',
+    bottom: space[3],
+    right: space[3] + 2,
+    alignItems: 'center',
+    zIndex: 2,
+    transform: [{ rotate: '180deg' }],
+  },
+  cornerRank: {
+    fontFamily: font.display,
+    fontSize: 22,
+    lineHeight: 22,
+    fontWeight: fontWeight.regular,
+    letterSpacing: 0,
+    marginBottom: 2,
   },
   cardContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: space[6],
-    paddingTop: space[8], // leave room for corner suit
+    paddingTop: space[8], // leave room for corner pip
+    zIndex: 1,
   },
   title: {
     fontFamily: font.display,

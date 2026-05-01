@@ -34,6 +34,7 @@ import TimeInput from '../components/TimeInput';
 import ScreenContainer from '../components/ScreenContainer';
 import CardComposer, { type CardState } from '../components/CardComposer';
 import DraggableCardRow from '../components/DraggableCardRow';
+import { identityFor } from '../cardIdentity';
 import { computeDeckAvgRunMs, formatDuration } from '../data/stats';
 import {
   color,
@@ -302,7 +303,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           style={styles.backBtn}
           hitSlop={8}
         >
-          <ChevronLeftIcon size={22} color={color.link} strokeWidth={2.2} />
+          <ChevronLeftIcon size={22} color={color.linkOnFelt} strokeWidth={2.2} />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Pressable onPress={handleDelete}>
@@ -409,6 +410,8 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
             state={composer}
             onChange={setComposer}
             size="inline"
+            // Preview the playing-card identity this new card will get when added.
+            identity={identityFor(deck.id, deck.cardRefs.length)}
           />
           <View style={styles.composerActions}>
             <Pressable
@@ -536,7 +539,7 @@ const styles = StyleSheet.create({
   backText: {
     fontFamily: font.text,
     fontSize: fontSize.ui,
-    color: color.link,
+    color: color.linkOnFelt,
   },
   deleteBtn: {
     fontFamily: font.text,
@@ -547,7 +550,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: fontSize.displayM,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
     paddingHorizontal: space[5],
@@ -563,7 +566,7 @@ const styles = StyleSheet.create({
   avgRunText: {
     fontFamily: font.mono,
     fontSize: fontSize.bodyS,
-    color: color.fg3,
+    color: color.fgOnFelt2,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -580,7 +583,7 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontFamily: font.text,
     fontSize: fontSize.ui,
-    color: color.fg2,
+    color: color.fgOnFelt1,
   },
   composerWrap: {
     paddingVertical: space[3],
@@ -644,7 +647,7 @@ const styles = StyleSheet.create({
     fontFamily: font.text,
     fontSize: fontSize.label,
     fontWeight: fontWeight.semibold,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     paddingHorizontal: space[5],
     paddingTop: space[3],
     paddingBottom: space[2],
@@ -683,7 +686,7 @@ const styles = StyleSheet.create({
   dragHint: {
     fontFamily: font.text,
     fontSize: fontSize.micro,
-    color: color.fg4,
+    color: color.fgOnFelt3,
     paddingHorizontal: space[5],
     paddingBottom: space[2],
     fontStyle: 'italic',
@@ -719,13 +722,13 @@ const styles = StyleSheet.create({
     padding: space[3] + 2,
     borderRadius: radius.m,
     borderWidth: 1,
-    borderColor: color.hairline,
+    borderColor: color.hairlineOnFelt,
     borderStyle: 'dashed',
   },
   addCardText: {
     fontFamily: font.text,
     fontSize: fontSize.ui,
-    color: color.link,
+    color: color.linkOnFelt,
     fontWeight: fontWeight.semibold,
   },
 });

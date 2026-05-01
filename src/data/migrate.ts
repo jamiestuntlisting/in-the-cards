@@ -1,4 +1,6 @@
 import { Platform } from 'react-native';
+import { getAllDecks, saveDeck } from './storage';
+import { TEMPLATE_DEFAULT_TRIGGERS } from './seedData';
 
 /**
  * One-time migration: old storage keys (`cards`, `decks`, ...) → namespaced
@@ -60,5 +62,46 @@ export function migrateLegacyStorage(): void {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn('[migrate] Legacy storage migration failed', e);
+  }
+}
+
+/**
+ * Backfill default triggers on decks created from the Morning / Afternoon /
+ * Evening templates before triggers were a thing. Runs once per origin —
+ * idempotent thereafter via a flag.
+ */
+const TRIGGER_BACKFILL_FLAG = 'itc:trigger_backfill_done';
+
+export async function backfillTemplateTriggers(): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      if (window.localStorage.getItem(TRIGGER_BACKFILL_FLAG) === 'true') return;
+    } catch {
+      // ignore — fall through and try the work anyway
+    }
+  }
+
+  try {
+    const decks = await getAllDecks();
+    let touched = 0;
+    for (const deck of decks) {
+      if (deck.trigger?.time) continue;
+      const defaultTime = TEMPLATE_DEFAULT_TRIGGERS[deck.name];
+      if (!defaultTime) continue;
+      await saveDeck({ ...deck, trigger: { time: defaultTime } });
+      touched++;
+    }
+    if (Platform.OS === 'web') {
+      window.localStorage.setItem(TRIGGER_BACKFILL_FLAG, 'true');
+    }
+    if (touched > 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        `[migrate] Backfilled trigger time on ${touched} template deck(s).`
+      );
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[migrate] Trigger backfill failed', e);
   }
 }

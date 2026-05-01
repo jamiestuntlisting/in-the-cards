@@ -8,7 +8,10 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import type { RootStackParamList } from './src/navigation';
 import { seedIfNeeded } from './src/data/seedData';
-import { migrateLegacyStorage } from './src/data/migrate';
+import {
+  backfillTemplateTriggers,
+  migrateLegacyStorage,
+} from './src/data/migrate';
 import { checkMidnightRollover } from './src/data/rollover';
 import { initTriggers } from './src/data/notifications';
 import { getAllDecks } from './src/data/storage';
@@ -61,6 +64,7 @@ export default function App() {
     migrateLegacyStorage();
 
     seedIfNeeded()
+      .then(() => backfillTemplateTriggers())
       .then(() => checkMidnightRollover())
       .then(() => getAllDecks())
       .then((decks) => initTriggers(decks))
@@ -80,7 +84,8 @@ export default function App() {
       document.body.style.fontFamily =
         "'Instrument Sans', ui-sans-serif, system-ui, sans-serif";
       document.body.style.backgroundColor = color.bgPage;
-      document.body.style.color = color.fg1;
+      document.body.style.color = color.fgOnFelt1;
+      document.documentElement.style.backgroundColor = color.bgPage;
     }
   }, []);
 

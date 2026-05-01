@@ -123,7 +123,7 @@ export default function SettingsScreen({ navigation }: Props) {
           style={styles.backBtn}
           hitSlop={8}
         >
-          <ChevronLeftIcon size={22} color={color.link} strokeWidth={2.2} />
+          <ChevronLeftIcon size={22} color={color.linkOnFelt} strokeWidth={2.2} />
           <Text style={styles.backText}>Back</Text>
         </Pressable>
       </View>
@@ -288,13 +288,13 @@ const styles = StyleSheet.create({
   backText: {
     fontFamily: font.text,
     fontSize: fontSize.ui,
-    color: color.link,
+    color: color.linkOnFelt,
   },
   heading: {
     fontFamily: font.display,
     fontSize: fontSize.displayM,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
     paddingHorizontal: space[5],
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     fontFamily: font.text,
     fontSize: fontSize.label,
     fontWeight: fontWeight.semibold,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     textTransform: 'uppercase',
     letterSpacing: letterSpacing.label,
     marginTop: space[4],
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   hint: {
     fontFamily: font.text,
     fontSize: fontSize.bodyS,
-    color: color.fg4,
+    color: color.fgOnFelt3,
     marginBottom: space[2],
   },
   input: {
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     color: color.fg2,
     minHeight: 120,
     padding: space[2],
-    backgroundColor: color.bgPage,
+    backgroundColor: color.bgPagePaper,
     borderRadius: radius.s,
     textAlignVertical: 'top',
   },
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   rawBox: {
-    backgroundColor: color.bgPage,
+    backgroundColor: color.bgPagePaper,
     borderRadius: radius.s,
     padding: space[3],
     borderWidth: 1,

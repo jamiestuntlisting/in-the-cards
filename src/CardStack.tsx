@@ -20,9 +20,17 @@ import {
   suit,
 } from './design/tokens';
 import { HeartIcon } from './design/icons';
+import {
+  type CardIdentity,
+  DEFAULT_IDENTITY,
+  colorForSuit,
+} from './cardIdentity';
+import { SuitGlyph } from './SwipeableCard';
 
 interface CardStackProps {
   cards: CardData[];
+  /** Optional per-card identity, parallel to `cards`. */
+  identities?: CardIdentity[];
   shuffleJitter: SharedValue<number>;
 }
 
@@ -37,7 +45,11 @@ function seededRandom(id: string, salt: number): number {
 
 const MAX_VISIBLE_LAYERS = 6;
 
-export default function CardStack({ cards, shuffleJitter }: CardStackProps) {
+export default function CardStack({
+  cards,
+  identities,
+  shuffleJitter,
+}: CardStackProps) {
   const stackCards = cards.slice(1, MAX_VISIBLE_LAYERS + 1);
 
   return (
@@ -45,9 +57,15 @@ export default function CardStack({ cards, shuffleJitter }: CardStackProps) {
       {/* Render deepest first so the layer immediately under the top card
        *  paints last and shows its content on top of the deeper cream layers. */}
       {[...stackCards]
-        .map((card, i) => ({ card, layerIndex: i + 1 }))
+        .map((card, i) => ({
+          card,
+          layerIndex: i + 1,
+          // identities is parallel to `cards` (the live ordered deck), so the
+          // layer at slice-index `i` corresponds to cards[i+1].
+          identity: identities?.[i + 1] ?? DEFAULT_IDENTITY,
+        }))
         .reverse()
-        .map(({ card, layerIndex }) => {
+        .map(({ card, layerIndex, identity }) => {
           const rotation = seededRandom(card.id, 0) * 2;
           const offsetX = seededRandom(card.id, 1) * 2;
           const offsetY = seededRandom(card.id, 2) * 2;
@@ -56,6 +74,7 @@ export default function CardStack({ cards, shuffleJitter }: CardStackProps) {
             <StackLayer
               key={card.id}
               card={card}
+              identity={identity}
               layerIndex={layerIndex}
               rotation={rotation}
               offsetX={offsetX}
@@ -70,6 +89,7 @@ export default function CardStack({ cards, shuffleJitter }: CardStackProps) {
 
 interface StackLayerProps {
   card: CardData;
+  identity: CardIdentity;
   layerIndex: number;
   rotation: number;
   offsetX: number;
@@ -89,12 +109,14 @@ const STACK_COLORS = [
 
 function StackLayer({
   card,
+  identity,
   layerIndex,
   rotation,
   offsetX,
   offsetY,
   shuffleJitter,
 }: StackLayerProps) {
+  const pipColor = colorForSuit(identity.suit);
   const animatedStyle = useAnimatedStyle(() => {
     const jitter = shuffleJitter.value * (layerIndex % 2 === 0 ? 1 : -1) * 3;
     return {
@@ -119,8 +141,18 @@ function StackLayer({
     >
       {showContent && (
         <>
-          <View style={styles.cornerSuit}>
-            <HeartIcon size={16} color={suit.heart} strokeWidth={1.5} />
+          <View style={styles.innerFrame} pointerEvents="none" />
+          <View style={styles.cornerTL} pointerEvents="none">
+            <Text style={[styles.cornerRank, { color: pipColor }]}>
+              {identity.rank}
+            </Text>
+            <SuitGlyph suit={identity.suit} size={20} color={pipColor} />
+          </View>
+          <View style={styles.cornerBR} pointerEvents="none">
+            <Text style={[styles.cornerRank, { color: pipColor }]}>
+              {identity.rank}
+            </Text>
+            <SuitGlyph suit={identity.suit} size={20} color={pipColor} />
           </View>
           <View style={styles.peekContent}>
             <Text style={styles.peekTitle} numberOfLines={4}>
@@ -144,12 +176,40 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadow.flat,
   },
-  cornerSuit: {
+  innerFrame: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    bottom: 8,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.cardInnerFrame,
+    zIndex: 0,
+  },
+  cornerTL: {
     position: 'absolute',
     top: space[3],
-    left: space[3],
+    left: space[3] + 2,
+    alignItems: 'center',
+    zIndex: 2,
     opacity: 0.6,
-    zIndex: 1,
+  },
+  cornerBR: {
+    position: 'absolute',
+    bottom: space[3],
+    right: space[3] + 2,
+    alignItems: 'center',
+    zIndex: 2,
+    opacity: 0.6,
+    transform: [{ rotate: '180deg' }],
+  },
+  cornerRank: {
+    fontFamily: font.display,
+    fontSize: 22,
+    lineHeight: 22,
+    fontWeight: fontWeight.regular,
+    marginBottom: 2,
   },
   peekContent: {
     flex: 1,
@@ -157,6 +217,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: space[6],
     paddingTop: space[8],
+    zIndex: 1,
   },
   peekTitle: {
     fontFamily: font.display,

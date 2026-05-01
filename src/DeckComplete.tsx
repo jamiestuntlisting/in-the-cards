@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: fontSize.displayL,
     fontWeight: fontWeight.regular,
-    color: color.fg1,
+    color: color.fgOnFelt1,
     letterSpacing: letterSpacing.display,
     textTransform: 'uppercase',
     marginBottom: space[4],
@@ -143,14 +143,14 @@ const styles = StyleSheet.create({
     fontFamily: font.mono,
     fontSize: fontSize.displayXl,
     fontWeight: fontWeight.semibold,
-    color: suit.heart,
+    color: '#F2C94C', // gold — winnings on the table
     marginBottom: -4,
     lineHeight: fontSize.displayXl * lineHeight.display,
   },
   bigPctLabel: {
     fontFamily: font.text,
     fontSize: fontSize.bodyS,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     marginBottom: space[6],
   },
   statsGrid: {
@@ -173,18 +173,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: font.text,
     fontSize: fontSize.body,
-    color: color.fg2,
+    color: color.fgOnFelt1,
   },
   statValue: {
     fontFamily: font.mono,
     fontSize: fontSize.body,
     fontWeight: fontWeight.semibold,
-    color: color.fg1,
+    color: color.fgOnFelt1,
   },
   totalText: {
     fontFamily: font.text,
     fontSize: fontSize.bodyS,
-    color: color.fg4,
+    color: color.fgOnFelt3,
     marginBottom: space[6],
   },
   primaryButton: {
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontFamily: font.text,
-    color: color.fg3,
+    color: color.fgOnFelt2,
     fontSize: fontSize.ui,
     fontWeight: fontWeight.medium,
   },
