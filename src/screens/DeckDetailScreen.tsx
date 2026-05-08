@@ -33,7 +33,10 @@ import {
 } from '../data/notifications';
 import TimeInput from '../components/TimeInput';
 import ScreenContainer from '../components/ScreenContainer';
-import CardComposer, { type CardState } from '../components/CardComposer';
+import CardComposer, {
+  LimitRow,
+  type CardState,
+} from '../components/CardComposer';
 import DraggableCardRow from '../components/DraggableCardRow';
 import { identityFor } from '../cardIdentity';
 import { computeDeckAvgRunMs, formatDuration } from '../data/stats';
@@ -406,6 +409,9 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                 <Text style={styles.addToDeckText}>Add to deck</Text>
               </Pressable>
             </View>
+            <View style={styles.limitWrap}>
+              <LimitRow state={composer} onChange={setComposer} onFelt />
+            </View>
           </View>
         )}
 
@@ -662,6 +668,12 @@ const styles = StyleSheet.create({
   composerWrap: {
     paddingVertical: space[3],
     paddingHorizontal: space[4],
+  },
+  limitWrap: {
+    marginTop: space[3],
+    paddingTop: space[2],
+    borderTopWidth: 1,
+    borderTopColor: color.hairlineOnFelt,
   },
   composerCollapsed: {
     flexDirection: 'row',

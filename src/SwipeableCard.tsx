@@ -376,6 +376,16 @@ export default function SwipeableCard({
               <Text style={styles.linkText}>{card.link}</Text>
             </Pressable>
           )}
+
+          {card.completionLimit != null && card.completionLimit > 1 && (
+            <Text style={styles.remainingText}>
+              {(() => {
+                const r =
+                  card.completionLimit! - (card.completionCount ?? 0);
+                return r === 1 ? 'Last time' : `${r} more times`;
+              })()}
+            </Text>
+          )}
         </View>
       </Animated.View>
     </GestureDetector>
@@ -479,6 +489,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodyS,
     color: color.link,
     marginTop: space[2],
+    textAlign: 'center',
+  },
+  // "3 more times" footer for cards with completionLimit > 1.
+  remainingText: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: color.fg4,
+    fontStyle: 'italic',
+    marginTop: 'auto',
     textAlign: 'center',
   },
   // Hint badges — each in the suit's color

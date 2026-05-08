@@ -28,7 +28,10 @@ import {
   space,
   suit,
 } from '../design/tokens';
-import CardComposer, { type CardState } from '../components/CardComposer';
+import CardComposer, {
+  LimitRow,
+  type CardState,
+} from '../components/CardComposer';
 import ScreenContainer from '../components/ScreenContainer';
 import { identityFor } from '../cardIdentity';
 
@@ -158,6 +161,10 @@ export default function CardEditorScreen({ route, navigation }: Props) {
           }
         />
 
+        <View style={styles.limitWrap}>
+          <LimitRow state={state} onChange={setState} />
+        </View>
+
         {!isNew && (
           <Pressable style={styles.deleteBtn} onPress={handleDelete}>
             <Text style={styles.deleteText}>Delete Card</Text>
@@ -203,6 +210,12 @@ const styles = StyleSheet.create({
     padding: space[5],
     paddingTop: space[5],
     paddingBottom: space[9],
+  },
+  limitWrap: {
+    marginTop: space[5],
+    paddingTop: space[2],
+    borderTopWidth: 1,
+    borderTopColor: color.hairlineOnFelt,
   },
   deleteBtn: {
     marginTop: space[7],

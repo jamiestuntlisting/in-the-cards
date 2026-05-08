@@ -6,6 +6,7 @@ import {
   Image,
   StyleSheet,
   Pressable,
+  Switch,
 } from 'react-native';
 import {
   color,
@@ -65,7 +66,7 @@ export default function CardComposer({
   size = 'full',
   identity = DEFAULT_IDENTITY,
 }: Props) {
-  const { title, blocks, timerSeconds, link, completionLimit } = state;
+  const { title, blocks, timerSeconds, link } = state;
   const pipColor = colorForSuit(identity.suit);
 
   const set = (patch: Partial<CardState>) => onChange({ ...state, ...patch });
@@ -88,14 +89,20 @@ export default function CardComposer({
     set({ blocks: updated });
   };
 
-  const addText = () => set({ blocks: [...blocks, { type: 'text', value: '' }] });
-  const addImage = () =>
+  // Hard caps: at most one text block + one image block per card.
+  const hasText = blocks.some((b) => b.type === 'text');
+  const hasImage = blocks.some((b) => b.type === 'image');
+  const addText = () => {
+    if (hasText) return;
+    set({ blocks: [...blocks, { type: 'text', value: '' }] });
+  };
+  const addImage = () => {
+    if (hasImage) return;
     set({ blocks: [...blocks, { type: 'image', value: '' }] });
+  };
   const toggleTimer = () =>
     set({ timerSeconds: timerSeconds == null ? 60 : undefined });
   const toggleLink = () => set({ link: link == null ? '' : undefined });
-  const toggleLimit = () =>
-    set({ completionLimit: completionLimit == null ? 1 : undefined });
 
   const cardStyle = size === 'inline' ? styles.cardInline : styles.cardFull;
   const titleStyle =
@@ -204,42 +211,24 @@ export default function CardComposer({
               </Pressable>
             </View>
           )}
-
-          {completionLimit != null && (
-            <View style={styles.limitRow}>
-              <Text style={styles.limitLabel}>Run</Text>
-              <TextInput
-                value={String(completionLimit)}
-                onChangeText={(v) => {
-                  const n = v ? parseInt(v, 10) : 0;
-                  set({ completionLimit: Number.isFinite(n) ? Math.max(1, n) : 1 });
-                }}
-                keyboardType="numeric"
-                style={styles.limitInput}
-                placeholder="1"
-                placeholderTextColor={color.fg4}
-              />
-              <Text style={styles.limitLabel}>
-                {completionLimit === 1 ? 'time only' : 'times only'}
-              </Text>
-              <Pressable onPress={toggleLimit} hitSlop={6}>
-                <SkipIcon size={14} color={color.fg4} strokeWidth={2} />
-              </Pressable>
-            </View>
-          )}
         </View>
       </View>
 
-      {/* Toolbar */}
+      {/* Toolbar \u2014 text/image are one-shot adds (hide once card has them).
+          timer + link are toggles. Limit is configured outside the composer. */}
       <View style={styles.toolbar}>
-        <ToolButton label="Text" onPress={addText}>
-          <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
-          <Text style={styles.toolText}>Text</Text>
-        </ToolButton>
-        <ToolButton label="Image" onPress={addImage}>
-          <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
-          <Text style={styles.toolText}>Image</Text>
-        </ToolButton>
+        {!hasText && (
+          <ToolButton label="Text" onPress={addText}>
+            <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
+            <Text style={styles.toolText}>Text</Text>
+          </ToolButton>
+        )}
+        {!hasImage && (
+          <ToolButton label="Image" onPress={addImage}>
+            <PlusIcon size={14} color={color.link} strokeWidth={2.2} />
+            <Text style={styles.toolText}>Image</Text>
+          </ToolButton>
+        )}
         <ToolButton
           label="Timer"
           onPress={toggleTimer}
@@ -275,28 +264,6 @@ export default function CardComposer({
             ]}
           >
             Link
-          </Text>
-        </ToolButton>
-        <ToolButton
-          label="Limit runs"
-          onPress={toggleLimit}
-          active={completionLimit != null}
-        >
-          <Text
-            style={[
-              styles.toolLink,
-              completionLimit != null && styles.toolTextActive,
-            ]}
-          >
-            {'\u2713'}
-          </Text>
-          <Text
-            style={[
-              styles.toolText,
-              completionLimit != null && styles.toolTextActive,
-            ]}
-          >
-            Limit
           </Text>
         </ToolButton>
       </View>
@@ -396,6 +363,107 @@ function BlockEditor({
     </View>
   );
 }
+
+/**
+ * Standalone toggle row for the per-card run limit. Lives outside CardComposer
+ * (under the From-library / Add-to-deck buttons in DeckDetailScreen, and under
+ * the composer in CardEditorScreen) so the card preview stays focused on the
+ * card's own content. Toggling on defaults to 1; flipping off clears the limit.
+ */
+export function LimitRow({
+  state,
+  onChange,
+  onFelt = false,
+}: {
+  state: CardState;
+  onChange: (next: CardState) => void;
+  /** True when rendered on the green felt background (DeckDetail) — picks
+   *  legible text colors. False when on the bgRaised editor surface. */
+  onFelt?: boolean;
+}) {
+  const { completionLimit } = state;
+  const enabled = completionLimit != null;
+  const labelColor = onFelt ? color.fgOnFelt1 : color.fg1;
+  const subColor = onFelt ? color.fgOnFelt2 : color.fg3;
+  return (
+    <View style={limitStyles.row}>
+      <View style={limitStyles.labelWrap}>
+        <Text style={[limitStyles.label, { color: labelColor }]}>
+          Limit runs
+        </Text>
+        {enabled ? (
+          <View style={limitStyles.countWrap}>
+            <TextInput
+              value={String(completionLimit)}
+              onChangeText={(v) => {
+                const n = v ? parseInt(v, 10) : 1;
+                onChange({
+                  ...state,
+                  completionLimit: Number.isFinite(n) ? Math.max(1, n) : 1,
+                });
+              }}
+              keyboardType="numeric"
+              style={[limitStyles.input, { color: labelColor }]}
+            />
+            <Text style={[limitStyles.suffix, { color: subColor }]}>
+              {completionLimit === 1 ? 'time' : 'times'}
+            </Text>
+          </View>
+        ) : (
+          <Text style={[limitStyles.suffix, { color: subColor }]}>
+            Unlimited
+          </Text>
+        )}
+      </View>
+      <Switch
+        value={enabled}
+        onValueChange={(v) =>
+          onChange({ ...state, completionLimit: v ? 1 : undefined })
+        }
+        trackColor={{ true: suit.heart, false: color.hairline }}
+        thumbColor="#fff"
+      />
+    </View>
+  );
+}
+
+const limitStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: space[2] + 2,
+    paddingHorizontal: space[1],
+  },
+  labelWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space[2],
+    flex: 1,
+  },
+  label: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.medium,
+  },
+  countWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  input: {
+    fontFamily: font.mono,
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.semibold,
+    minWidth: 24,
+    padding: 0,
+    textAlign: 'center',
+  },
+  suffix: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+  },
+});
 
 // ─── Sizing ───
 // Full = exact match to play-view card so wrapping is WYSIWYG.
@@ -579,33 +647,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.micro,
     color: suit.club,
     flex: 1,
-  },
-  // Run-limit row inside card — appears when "Limit" tool is toggled on.
-  limitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    gap: 6,
-    backgroundColor: suitTint.diamond,
-    paddingHorizontal: space[2] + 2,
-    paddingVertical: 4,
-    borderRadius: radius.xs,
-    marginTop: space[1] + 2,
-    justifyContent: 'center',
-  },
-  limitInput: {
-    fontFamily: font.mono,
-    fontSize: fontSize.bodyS,
-    color: suit.diamond,
-    fontWeight: fontWeight.semibold,
-    width: 36,
-    textAlign: 'center',
-    padding: 0,
-  },
-  limitLabel: {
-    fontFamily: font.text,
-    fontSize: fontSize.micro,
-    color: suit.diamond,
   },
   // Link row inside card
   linkRow: {

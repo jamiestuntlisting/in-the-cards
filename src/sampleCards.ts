@@ -4,6 +4,10 @@ export interface CardData {
   content: { type: 'text' | 'image'; value: string }[];
   timer?: { durationSeconds: number };
   link?: string;
+  /** Per-card "to-do" cap — see data/types.ts. Mirrored here so the play
+   *  view can render the remaining-runs line without a separate type. */
+  completionLimit?: number;
+  completionCount?: number;
 }
 
 export const TUTORIAL_DECK: CardData[] = [
