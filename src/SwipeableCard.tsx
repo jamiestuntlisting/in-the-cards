@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, Dimensions } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  Dimensions,
+  Pressable,
+  Linking,
+} from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -356,7 +364,18 @@ export default function SwipeableCard({
             <TimerOverlay durationSeconds={card.timer.durationSeconds} />
           )}
 
-          {card.link && <Text style={styles.linkText}>{card.link}</Text>}
+          {card.link && (
+            <Pressable
+              onPress={() => {
+                const raw = card.link!.trim();
+                const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+                Linking.openURL(href).catch(() => {});
+              }}
+              hitSlop={8}
+            >
+              <Text style={styles.linkText}>{card.link}</Text>
+            </Pressable>
+          )}
         </View>
       </Animated.View>
     </GestureDetector>

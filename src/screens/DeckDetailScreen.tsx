@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import type { Card, Deck, DailyRun } from '../data/types';
+import { isCardRetired } from '../data/types';
 import {
   getDeck,
   saveDeck,
@@ -51,6 +52,8 @@ import {
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
   CheckIcon,
   SkipIcon,
   DeferIcon,
@@ -82,7 +85,9 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     blocks: [],
     timerSeconds: undefined,
     link: undefined,
+    completionLimit: undefined,
   };
+  const [composerOpen, setComposerOpen] = useState(false);
   const [composer, setComposer] = useState<CardState>(emptyComposer);
   const [avgRunMs, setAvgRunMs] = useState<number | null>(null);
   const [completedRunsCount, setCompletedRunsCount] = useState(0);
@@ -173,6 +178,10 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           : undefined,
       link: composer.link?.trim() ? composer.link.trim() : undefined,
       createdAt: Date.now(),
+      completionLimit:
+        composer.completionLimit != null && composer.completionLimit > 0
+          ? composer.completionLimit
+          : undefined,
     };
     await saveCard(newCard);
     const updated: Deck = {
@@ -192,6 +201,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     const refreshedRun = await getDailyRun(deck.id, todayString());
     setTodayRun(refreshedRun ?? null);
     setComposer(emptyComposer);
+    setComposerOpen(false);
   };
 
   const startOrResume = async () => {
@@ -200,9 +210,16 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     let run = await getDailyRun(deck.id, today);
 
     if (!run) {
+      const allCards = await getAllCards();
+      const retiredIds = new Set(
+        allCards.filter(isCardRetired).map((c) => c.id)
+      );
       let orderedIds = deck.cardRefs
         .sort((a, b) => a.positionInDeck - b.positionInDeck)
-        .map((r) => r.cardId);
+        .map((r) => r.cardId)
+        .filter((id) => !retiredIds.has(id));
+
+      if (orderedIds.length === 0) return;
 
       if (deck.orderMode === 'random') {
         for (let i = orderedIds.length - 1; i > 0; i--) {
@@ -338,7 +355,170 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* Order mode toggle */}
+        {/* New card — collapsed by default. Tapping the bar opens the WYSIWYG
+            composer + library/add buttons. Lives at the top so adding a card
+            is the dominant action on this screen. */}
+        {!composerOpen ? (
+          <Pressable
+            style={styles.composerCollapsed}
+            onPress={() => setComposerOpen(true)}
+          >
+            <PlusIcon size={16} color={color.linkOnFelt} strokeWidth={2.2} />
+            <Text style={styles.composerCollapsedText}>New card</Text>
+            <ChevronDownIcon size={14} color={color.fgOnFelt3} strokeWidth={2} />
+          </Pressable>
+        ) : (
+          <View style={styles.composerWrap}>
+            <View style={styles.composerHeader}>
+              <Text style={styles.composerHeaderText}>New card</Text>
+              <Pressable
+                onPress={() => setComposerOpen(false)}
+                hitSlop={8}
+                accessibilityLabel="Collapse new card"
+              >
+                <ChevronUpIcon size={16} color={color.fg3} strokeWidth={2} />
+              </Pressable>
+            </View>
+            <CardComposer
+              state={composer}
+              onChange={setComposer}
+              size="inline"
+              identity={identityFor(deck.id, deck.cardRefs.length)}
+            />
+            <View style={styles.composerActions}>
+              <Pressable
+                style={styles.libraryBtn}
+                onPress={() =>
+                  navigation.navigate('CardPicker', { deckId: deck.id })
+                }
+              >
+                <Text style={styles.libraryBtnText}>From library</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.addToDeckBtn,
+                  !composer.title.trim() && styles.addToDeckBtnDisabled,
+                ]}
+                onPress={addComposerCard}
+                disabled={!composer.title.trim()}
+              >
+                <PlusIcon size={16} color="#fff" strokeWidth={2.2} />
+                <Text style={styles.addToDeckText}>Add to deck</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Card list — rendered inline inside the scroll view */}
+        <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
+        {deck.orderMode === 'fixed' && cards.length > 1 && (
+          <Text style={styles.dragHint}>
+            Long-press a card and drag to reorder.
+          </Text>
+        )}
+        <View style={styles.list}>
+          {cards.map((card, index) => {
+            const retired = isCardRetired(card);
+            const remaining =
+              card.completionLimit != null
+                ? Math.max(
+                    0,
+                    card.completionLimit - (card.completionCount ?? 0)
+                  )
+                : null;
+            const rowContent = (
+              <Pressable
+                style={[styles.cardRow, retired && styles.cardRowRetired]}
+                onPress={() =>
+                  navigation.navigate('CardEditor', {
+                    cardId: card.id,
+                    deckId: deck.id,
+                  })
+                }
+              >
+                {deck.orderMode === 'fixed' ? (
+                  <View style={styles.gripHandle}>
+                    <FixedOrderIcon size={16} color={color.fg4} strokeWidth={2} />
+                  </View>
+                ) : (
+                  <Text style={styles.cardIndex}>{index + 1}</Text>
+                )}
+                <Text
+                  style={[styles.cardTitle, retired && styles.cardTitleRetired]}
+                  numberOfLines={1}
+                >
+                  {card.title}
+                </Text>
+                {card.timer && (
+                  <View style={styles.timerBadge}>
+                    <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
+                    <Text style={styles.timerBadgeText}>
+                      {card.timer.durationSeconds}s
+                    </Text>
+                  </View>
+                )}
+                {card.completionLimit != null && (
+                  <View
+                    style={[
+                      styles.limitBadge,
+                      retired && styles.limitBadgeDone,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.limitBadgeText,
+                        retired && styles.limitBadgeDoneText,
+                      ]}
+                    >
+                      {retired
+                        ? 'Done'
+                        : card.completionLimit === 1
+                        ? 'Once'
+                        : `${remaining} left`}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.statusIcon}>
+                  {renderStatusIcon(card.id)}
+                </View>
+                <ChevronRightIcon size={16} color={color.fg4} />
+              </Pressable>
+            );
+
+            // Drag-to-reorder only makes sense in fixed order mode
+            if (deck.orderMode === 'fixed') {
+              return (
+                <DraggableCardRow
+                  key={card.id}
+                  index={index}
+                  totalRows={cards.length}
+                  rowHeight={ROW_HEIGHT}
+                  onReorder={moveCardByIndex}
+                  scrollRef={scrollRef}
+                  scrollOffsetRef={scrollOffsetRef}
+                >
+                  {rowContent}
+                </DraggableCardRow>
+              );
+            }
+
+            return <View key={card.id}>{rowContent}</View>;
+          })}
+        </View>
+
+        {/* Resume / Play — between cards and deck settings, since it's the
+            primary action once cards exist. */}
+        {cards.length > 0 && (
+          <Pressable style={styles.resumeBottom} onPress={startOrResume}>
+            <PlayIcon size={18} color="#fff" strokeWidth={2.2} />
+            <Text style={styles.resumeBottomText}>{runLabel}</Text>
+          </Pressable>
+        )}
+
+        {/* Deck-level settings — order mode + trigger time. Lives below the
+            cards because it's set-once configuration, not the per-visit action. */}
+        <Text style={styles.sectionTitle}>Deck settings</Text>
+
         <View style={styles.toggleRow}>
           <View style={styles.toggleLabelRow}>
             <OrderIcon size={18} color={color.fg2} />
@@ -354,7 +534,6 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           />
         </View>
 
-        {/* Trigger time */}
         <View style={styles.toggleRow}>
           <View style={styles.toggleLabelRow}>
             <TimerIcon size={18} color={color.fg2} />
@@ -403,111 +582,6 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
             )}
           </View>
         </View>
-
-        {/* Inline WYSIWYG composer — the editor IS the card */}
-        <View style={styles.composerWrap}>
-          <CardComposer
-            state={composer}
-            onChange={setComposer}
-            size="inline"
-            // Preview the playing-card identity this new card will get when added.
-            identity={identityFor(deck.id, deck.cardRefs.length)}
-          />
-          <View style={styles.composerActions}>
-            <Pressable
-              style={styles.libraryBtn}
-              onPress={() =>
-                navigation.navigate('CardPicker', { deckId: deck.id })
-              }
-            >
-              <Text style={styles.libraryBtnText}>From library</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.addToDeckBtn,
-                !composer.title.trim() && styles.addToDeckBtnDisabled,
-              ]}
-              onPress={addComposerCard}
-              disabled={!composer.title.trim()}
-            >
-              <PlusIcon size={16} color="#fff" strokeWidth={2.2} />
-              <Text style={styles.addToDeckText}>Add to deck</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Card list — rendered inline inside the scroll view */}
-        <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
-        {deck.orderMode === 'fixed' && cards.length > 1 && (
-          <Text style={styles.dragHint}>
-            Long-press a card and drag to reorder.
-          </Text>
-        )}
-        <View style={styles.list}>
-          {cards.map((card, index) => {
-            const rowContent = (
-              <Pressable
-                style={styles.cardRow}
-                onPress={() =>
-                  navigation.navigate('CardEditor', {
-                    cardId: card.id,
-                    deckId: deck.id,
-                  })
-                }
-              >
-                {deck.orderMode === 'fixed' ? (
-                  <View style={styles.gripHandle}>
-                    <FixedOrderIcon size={16} color={color.fg4} strokeWidth={2} />
-                  </View>
-                ) : (
-                  <Text style={styles.cardIndex}>{index + 1}</Text>
-                )}
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {card.title}
-                </Text>
-                {card.timer && (
-                  <View style={styles.timerBadge}>
-                    <TimerIcon size={11} color={suit.club} strokeWidth={2.2} />
-                    <Text style={styles.timerBadgeText}>
-                      {card.timer.durationSeconds}s
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.statusIcon}>
-                  {renderStatusIcon(card.id)}
-                </View>
-                <ChevronRightIcon size={16} color={color.fg4} />
-              </Pressable>
-            );
-
-            // Drag-to-reorder only makes sense in fixed order mode
-            if (deck.orderMode === 'fixed') {
-              return (
-                <DraggableCardRow
-                  key={card.id}
-                  index={index}
-                  totalRows={cards.length}
-                  rowHeight={ROW_HEIGHT}
-                  onReorder={moveCardByIndex}
-                  scrollRef={scrollRef}
-                  scrollOffsetRef={scrollOffsetRef}
-                >
-                  {rowContent}
-                </DraggableCardRow>
-              );
-            }
-
-            return <View key={card.id}>{rowContent}</View>;
-          })}
-        </View>
-
-        {/* Resume / Play — scrolls with the content */}
-        {cards.length > 0 && (
-          <Pressable style={styles.resumeBottom} onPress={startOrResume}>
-            <PlayIcon size={18} color="#fff" strokeWidth={2.2} />
-            <Text style={styles.resumeBottomText}>{runLabel}</Text>
-          </Pressable>
-        )}
       </ScrollView>
     </ScreenContainer>
   );
@@ -588,6 +662,40 @@ const styles = StyleSheet.create({
   composerWrap: {
     paddingVertical: space[3],
     paddingHorizontal: space[4],
+  },
+  composerCollapsed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    marginHorizontal: space[5],
+    marginTop: space[3],
+    marginBottom: space[3],
+    paddingVertical: 12,
+    borderRadius: radius.m,
+    borderWidth: 1,
+    borderColor: color.hairlineOnFelt,
+    borderStyle: 'dashed',
+  },
+  composerCollapsedText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    color: color.linkOnFelt,
+    fontWeight: fontWeight.semibold,
+  },
+  composerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: space[2],
+  },
+  composerHeaderText: {
+    fontFamily: font.text,
+    fontSize: fontSize.label,
+    fontWeight: fontWeight.semibold,
+    color: color.fgOnFelt2,
+    textTransform: 'uppercase',
+    letterSpacing: letterSpacing.label,
   },
   composerActions: {
     flexDirection: 'row',
@@ -711,6 +819,32 @@ const styles = StyleSheet.create({
     fontSize: fontSize.micro,
     color: suit.club,
     fontWeight: fontWeight.medium,
+  },
+  // Limit pill — shows "Once" / "N left" / "Done" for cards with a run cap.
+  limitBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+    backgroundColor: suitTint.diamond,
+  },
+  limitBadgeText: {
+    fontFamily: font.mono,
+    fontSize: fontSize.micro,
+    color: suit.diamond,
+    fontWeight: fontWeight.medium,
+  },
+  limitBadgeDone: {
+    backgroundColor: color.hairline,
+  },
+  limitBadgeDoneText: {
+    color: color.fg4,
+  },
+  cardRowRetired: {
+    opacity: 0.55,
+  },
+  cardTitleRetired: {
+    textDecorationLine: 'line-through',
+    color: color.fg3,
   },
   statusIcon: { width: 20, alignItems: 'center' },
   addCard: {

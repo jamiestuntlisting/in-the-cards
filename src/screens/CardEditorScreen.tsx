@@ -57,6 +57,7 @@ export default function CardEditorScreen({ route, navigation }: Props) {
             blocks: c.content,
             timerSeconds: c.timer?.durationSeconds,
             link: c.link,
+            completionLimit: c.completionLimit,
           });
         }
       });
@@ -83,6 +84,9 @@ export default function CardEditorScreen({ route, navigation }: Props) {
       return;
     }
 
+    // Preserve completionCount across edits — re-saving an existing card
+    // mustn't reset its lifetime tally.
+    const existing = cardId ? await getCard(cardId) : undefined;
     const card: Card = {
       id: cardId ?? generateId(),
       title: state.title.trim(),
@@ -92,7 +96,12 @@ export default function CardEditorScreen({ route, navigation }: Props) {
           ? { durationSeconds: state.timerSeconds }
           : undefined,
       link: state.link?.trim() ? state.link.trim() : undefined,
-      createdAt: Date.now(),
+      createdAt: existing?.createdAt ?? Date.now(),
+      completionLimit:
+        state.completionLimit != null && state.completionLimit > 0
+          ? state.completionLimit
+          : undefined,
+      completionCount: existing?.completionCount,
     };
 
     await saveCard(card);

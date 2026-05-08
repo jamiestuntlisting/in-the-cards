@@ -41,6 +41,8 @@ export interface CardState {
   blocks: ContentBlock[];
   timerSeconds?: number;
   link?: string;
+  /** When set, the card retires from future runs after this many right-swipes. */
+  completionLimit?: number;
 }
 
 interface Props {
@@ -63,7 +65,7 @@ export default function CardComposer({
   size = 'full',
   identity = DEFAULT_IDENTITY,
 }: Props) {
-  const { title, blocks, timerSeconds, link } = state;
+  const { title, blocks, timerSeconds, link, completionLimit } = state;
   const pipColor = colorForSuit(identity.suit);
 
   const set = (patch: Partial<CardState>) => onChange({ ...state, ...patch });
@@ -92,6 +94,8 @@ export default function CardComposer({
   const toggleTimer = () =>
     set({ timerSeconds: timerSeconds == null ? 60 : undefined });
   const toggleLink = () => set({ link: link == null ? '' : undefined });
+  const toggleLimit = () =>
+    set({ completionLimit: completionLimit == null ? 1 : undefined });
 
   const cardStyle = size === 'inline' ? styles.cardInline : styles.cardFull;
   const titleStyle =
@@ -200,6 +204,29 @@ export default function CardComposer({
               </Pressable>
             </View>
           )}
+
+          {completionLimit != null && (
+            <View style={styles.limitRow}>
+              <Text style={styles.limitLabel}>Run</Text>
+              <TextInput
+                value={String(completionLimit)}
+                onChangeText={(v) => {
+                  const n = v ? parseInt(v, 10) : 0;
+                  set({ completionLimit: Number.isFinite(n) ? Math.max(1, n) : 1 });
+                }}
+                keyboardType="numeric"
+                style={styles.limitInput}
+                placeholder="1"
+                placeholderTextColor={color.fg4}
+              />
+              <Text style={styles.limitLabel}>
+                {completionLimit === 1 ? 'time only' : 'times only'}
+              </Text>
+              <Pressable onPress={toggleLimit} hitSlop={6}>
+                <SkipIcon size={14} color={color.fg4} strokeWidth={2} />
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
 
@@ -248,6 +275,28 @@ export default function CardComposer({
             ]}
           >
             Link
+          </Text>
+        </ToolButton>
+        <ToolButton
+          label="Limit runs"
+          onPress={toggleLimit}
+          active={completionLimit != null}
+        >
+          <Text
+            style={[
+              styles.toolLink,
+              completionLimit != null && styles.toolTextActive,
+            ]}
+          >
+            {'\u2713'}
+          </Text>
+          <Text
+            style={[
+              styles.toolText,
+              completionLimit != null && styles.toolTextActive,
+            ]}
+          >
+            Limit
           </Text>
         </ToolButton>
       </View>
@@ -530,6 +579,33 @@ const styles = StyleSheet.create({
     fontSize: fontSize.micro,
     color: suit.club,
     flex: 1,
+  },
+  // Run-limit row inside card — appears when "Limit" tool is toggled on.
+  limitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    gap: 6,
+    backgroundColor: suitTint.diamond,
+    paddingHorizontal: space[2] + 2,
+    paddingVertical: 4,
+    borderRadius: radius.xs,
+    marginTop: space[1] + 2,
+    justifyContent: 'center',
+  },
+  limitInput: {
+    fontFamily: font.mono,
+    fontSize: fontSize.bodyS,
+    color: suit.diamond,
+    fontWeight: fontWeight.semibold,
+    width: 36,
+    textAlign: 'center',
+    padding: 0,
+  },
+  limitLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    color: suit.diamond,
   },
   // Link row inside card
   linkRow: {

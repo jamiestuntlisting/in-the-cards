@@ -8,6 +8,7 @@ import type {
   Goal,
   Settings,
 } from './types';
+import { isCardRetired } from './types';
 
 // ─── Storage Keys ───
 const KEYS = {
@@ -188,10 +189,19 @@ export async function ensureDailyRun(
   if (deck.cardRefs.length === 0) return null;
   let run = await getDailyRun(deck.id, date);
   if (!run) {
+    // Filter out cards that have already hit their completion limit — they
+    // shouldn't reappear in new runs.
+    const allCards = await getAllCards();
+    const retired = new Set(
+      allCards.filter(isCardRetired).map((c) => c.id)
+    );
     let orderedIds = deck.cardRefs
       .slice()
       .sort((a, b) => a.positionInDeck - b.positionInDeck)
-      .map((r) => r.cardId);
+      .map((r) => r.cardId)
+      .filter((id) => !retired.has(id));
+
+    if (orderedIds.length === 0) return null;
 
     if (deck.orderMode === 'random') {
       for (let i = orderedIds.length - 1; i > 0; i--) {
@@ -237,7 +247,12 @@ export async function appendCardsToActiveRun(
   if (!run) return; // no run yet today — fresh play will pick up the new cards
   if (run.status === 'complete') return; // already done; don't reopen
   const existing = new Set(run.liveCardStates.map((s) => s.cardId));
-  const toAdd = cardIds.filter((id) => !existing.has(id));
+  // Skip cards that already retired (limit reached) — they shouldn't reappear.
+  const allCards = await getAllCards();
+  const retired = new Set(allCards.filter(isCardRetired).map((c) => c.id));
+  const toAdd = cardIds.filter(
+    (id) => !existing.has(id) && !retired.has(id)
+  );
   if (toAdd.length === 0) return;
   const basePos = run.liveCardStates.length;
   const newStates = toAdd.map((cardId, i) => ({

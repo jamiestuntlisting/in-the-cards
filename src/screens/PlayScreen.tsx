@@ -19,10 +19,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import type { Card, Deck, DailyRun, LiveCardState } from '../data/types';
+import { isCardRetired } from '../data/types';
 import {
   getDeck,
   getAllDecks,
   getAllCards,
+  getCard,
+  saveCard,
   getDailyRun,
   getAllDailyRuns,
   saveDailyRun,
@@ -91,6 +94,10 @@ export default function PlayScreen({ route, navigation }: Props) {
     runLiveStates: DailyRun['liveCardStates'];
     runStatus: DailyRun['status'];
     logId: string;
+    /** Card that was swiped, and the direction — needed to roll back the
+     *  card-level completionCount when the user undoes a right-swipe. */
+    swipedCardId: string;
+    direction: SwipeDirection;
   };
   const [undoSnapshot, setUndoSnapshot] = useState<Snapshot | null>(null);
 
@@ -125,9 +132,12 @@ export default function PlayScreen({ route, navigation }: Props) {
       // path that didn't already call appendCardsToActiveRun.
       let dailyRun = loadedRun;
       const liveIds = new Set(dailyRun.liveCardStates.map((s) => s.cardId));
+      const retiredIds = new Set(
+        allCards.filter(isCardRetired).map((c) => c.id)
+      );
       const missingDeckIds = deck.cardRefs
         .map((r) => r.cardId)
-        .filter((id) => !liveIds.has(id));
+        .filter((id) => !liveIds.has(id) && !retiredIds.has(id));
       if (missingDeckIds.length > 0 && dailyRun.status !== 'complete') {
         const basePos = dailyRun.liveCardStates.length;
         const newStates = missingDeckIds.map((cardId, i) => ({
@@ -281,6 +291,8 @@ export default function PlayScreen({ route, navigation }: Props) {
         runLiveStates: run.liveCardStates.map((s) => ({ ...s })),
         runStatus: run.status,
         logId,
+        swipedCardId: currentCard.id,
+        direction,
       });
 
       // Helper: auto-remove the tutorial deck once the user finishes it.
@@ -337,6 +349,15 @@ export default function PlayScreen({ route, navigation }: Props) {
           };
           setRun(updatedRun);
           await saveDailyRun(updatedRun);
+          // Increment lifetime completion count — used by completionLimit
+          // (the "to-do list" feature) to retire cards from future runs.
+          const fresh = await getCard(currentCard.id);
+          if (fresh) {
+            await saveCard({
+              ...fresh,
+              completionCount: (fresh.completionCount ?? 0) + 1,
+            });
+          }
           await maybeAutoDeleteTutorial(isDone);
           setCurrentIndex(newIdx);
           if (!isDone) triggerFlipReveal();
@@ -441,6 +462,15 @@ export default function PlayScreen({ route, navigation }: Props) {
     if (!undoSnapshot || !run) return;
     // Remove the log entry
     await deleteLog(undoSnapshot.logId);
+    // If the undone swipe was a right-swipe, roll back the lifetime
+    // completion counter so the card doesn't retire prematurely.
+    if (undoSnapshot.direction === 'right') {
+      const fresh = await getCard(undoSnapshot.swipedCardId);
+      if (fresh) {
+        const next = Math.max(0, (fresh.completionCount ?? 0) - 1);
+        await saveCard({ ...fresh, completionCount: next });
+      }
+    }
     // Restore state
     setCards(undoSnapshot.cards);
     setCurrentIndex(undoSnapshot.currentIndex);
@@ -603,11 +633,17 @@ export default function PlayScreen({ route, navigation }: Props) {
                   const today = todayString();
                   let run = await getDailyRun(nextDeck.id, today);
                   if (!run) {
+                    const all = await getAllCards();
+                    const retiredIds = new Set(
+                      all.filter(isCardRetired).map((c) => c.id)
+                    );
                     let orderedIds = nextDeck.cardRefs
                       .sort(
                         (a, b) => a.positionInDeck - b.positionInDeck
                       )
-                      .map((r) => r.cardId);
+                      .map((r) => r.cardId)
+                      .filter((id) => !retiredIds.has(id));
+                    if (orderedIds.length === 0) return;
                     if (nextDeck.orderMode === 'random') {
                       for (let i = orderedIds.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));

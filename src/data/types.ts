@@ -7,6 +7,21 @@ export interface Card {
   timer?: { durationSeconds: number };
   link?: string;
   createdAt: number;
+  /**
+   * Maximum number of right-swipe completions before the card retires from
+   * future runs. Undefined = no limit (the card runs forever). Skips, defers,
+   * and shuffles do NOT count toward this limit.
+   */
+  completionLimit?: number;
+  /** How many times the card has been right-swiped. Defaults to 0. */
+  completionCount?: number;
+}
+
+export function isCardRetired(card: Card): boolean {
+  return (
+    card.completionLimit != null &&
+    (card.completionCount ?? 0) >= card.completionLimit
+  );
 }
 
 export interface ContentBlock {
