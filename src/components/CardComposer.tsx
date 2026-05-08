@@ -385,6 +385,9 @@ export function LimitRow({
   const enabled = completionLimit != null;
   const labelColor = onFelt ? color.fgOnFelt1 : color.fg1;
   const subColor = onFelt ? color.fgOnFelt2 : color.fg3;
+  const stepBorder = onFelt ? color.hairlineOnFelt : color.hairline;
+  const current = completionLimit ?? 1;
+  const decDisabled = current <= 1;
   return (
     <View style={limitStyles.row}>
       <View style={limitStyles.labelWrap}>
@@ -393,20 +396,48 @@ export function LimitRow({
         </Text>
         {enabled ? (
           <View style={limitStyles.countWrap}>
-            <TextInput
-              value={String(completionLimit)}
-              onChangeText={(v) => {
-                const n = v ? parseInt(v, 10) : 1;
+            <Pressable
+              onPress={() =>
                 onChange({
                   ...state,
-                  completionLimit: Number.isFinite(n) ? Math.max(1, n) : 1,
-                });
-              }}
-              keyboardType="numeric"
-              style={[limitStyles.input, { color: labelColor }]}
-            />
+                  completionLimit: Math.max(1, current - 1),
+                })
+              }
+              disabled={decDisabled}
+              hitSlop={8}
+              style={[
+                limitStyles.stepBtn,
+                { borderColor: stepBorder },
+                decDisabled && limitStyles.stepBtnDisabled,
+              ]}
+              accessibilityLabel="Decrease run limit"
+            >
+              <Text
+                style={[
+                  limitStyles.stepBtnText,
+                  { color: decDisabled ? color.fgDisabled : labelColor },
+                ]}
+              >
+                −
+              </Text>
+            </Pressable>
+            <Text style={[limitStyles.count, { color: labelColor }]}>
+              {current}
+            </Text>
+            <Pressable
+              onPress={() =>
+                onChange({ ...state, completionLimit: current + 1 })
+              }
+              hitSlop={8}
+              style={[limitStyles.stepBtn, { borderColor: stepBorder }]}
+              accessibilityLabel="Increase run limit"
+            >
+              <Text style={[limitStyles.stepBtnText, { color: labelColor }]}>
+                +
+              </Text>
+            </Pressable>
             <Text style={[limitStyles.suffix, { color: subColor }]}>
-              {completionLimit === 1 ? 'time' : 'times'}
+              {current === 1 ? 'time' : 'times'}
             </Text>
           </View>
         ) : (
@@ -448,16 +479,32 @@ const limitStyles = StyleSheet.create({
   },
   countWrap: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
+    alignItems: 'center',
+    gap: 6,
   },
-  input: {
+  count: {
     fontFamily: font.mono,
     fontSize: fontSize.ui,
     fontWeight: fontWeight.semibold,
-    minWidth: 24,
-    padding: 0,
+    minWidth: 18,
     textAlign: 'center',
+  },
+  stepBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnDisabled: {
+    opacity: 0.4,
+  },
+  stepBtnText: {
+    fontFamily: font.text,
+    fontSize: 18,
+    lineHeight: 18,
+    fontWeight: fontWeight.medium,
   },
   suffix: {
     fontFamily: font.text,
