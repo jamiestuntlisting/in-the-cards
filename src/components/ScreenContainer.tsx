@@ -5,6 +5,9 @@ import { color } from '../design/tokens';
 interface Props {
   children: React.ReactNode;
   style?: ViewStyle;
+  /** Optional background override — applied to both outer and inner layers
+   *  so the wide-viewport sides match the phone column. */
+  bg?: string;
 }
 
 /**
@@ -13,10 +16,11 @@ interface Props {
  *  - On wide viewports (desktop), centers content in a max-500px column
  *    (roughly 50% of a standard desktop screen — a phone-app shape)
  */
-export default function ScreenContainer({ children, style }: Props) {
+export default function ScreenContainer({ children, style, bg }: Props) {
+  const bgStyle = bg ? { backgroundColor: bg } : null;
   return (
-    <View style={styles.outer}>
-      <View style={[styles.inner, style]}>{children}</View>
+    <View style={[styles.outer, bgStyle]}>
+      <View style={[styles.inner, bgStyle, style]}>{children}</View>
     </View>
   );
 }
