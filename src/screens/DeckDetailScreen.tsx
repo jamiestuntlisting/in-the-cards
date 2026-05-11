@@ -7,6 +7,7 @@ import {
   Pressable,
   Switch,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -38,6 +39,7 @@ import CardComposer, {
   type CardState,
 } from '../components/CardComposer';
 import DraggableCardRow from '../components/DraggableCardRow';
+import LandscapeDeckView from '../components/LandscapeDeckView';
 import { identityFor } from '../cardIdentity';
 import { computeDeckAvgRunMs, formatDuration } from '../data/stats';
 import {
@@ -81,6 +83,12 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
   const [cards, setCards] = useState<Card[]>([]);
   const [todayRun, setTodayRun] = useState<DailyRun | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Landscape (rotated phone) → horizontal card carousel with drag-to-reorder.
+  // We treat any viewport where width > height as landscape, which covers both
+  // device rotation on phones and resize on web.
+  const { width: vw, height: vh } = useWindowDimensions();
+  const isLandscape = vw > vh;
 
   // Inline card composer state
   const emptyComposer: CardState = {
@@ -313,6 +321,48 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
 
   const OrderIcon =
     deck.orderMode === 'random' ? RandomOrderIcon : FixedOrderIcon;
+
+  if (isLandscape && cards.length > 0) {
+    // Landscape: bypass ScreenContainer's 500px cap so the carousel can use
+    // the full viewport width.
+    return (
+      <View style={styles.landscapeRoot}>
+        <View style={styles.landscapeHeader}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+            hitSlop={8}
+          >
+            <ChevronLeftIcon
+              size={22}
+              color={color.linkOnFelt}
+              strokeWidth={2.2}
+            />
+            <Text style={styles.backText}>Back</Text>
+          </Pressable>
+          <Text style={styles.landscapeTitle} numberOfLines={1}>
+            {deck.name}
+          </Text>
+          <Pressable
+            style={styles.landscapePlayBtn}
+            onPress={startOrResume}
+            hitSlop={8}
+          >
+            <PlayIcon size={16} color="#fff" strokeWidth={2.2} />
+            <Text style={styles.landscapePlayText}>{runLabel}</Text>
+          </Pressable>
+        </View>
+        <LandscapeDeckView
+          cards={cards}
+          onReorder={moveCardByIndex}
+          onCardPress={(cardId) =>
+            navigation.navigate('CardEditor', { cardId, deckId: deck.id })
+          }
+          reorderEnabled={deck.orderMode === 'fixed'}
+        />
+      </View>
+    );
+  }
 
   return (
     <ScreenContainer>
@@ -610,6 +660,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[5],
     paddingTop: space[9],
     paddingBottom: space[2],
+  },
+  landscapeRoot: {
+    flex: 1,
+    backgroundColor: color.bgPage,
+  },
+  landscapeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space[3],
+    paddingHorizontal: space[5],
+    paddingTop: space[5],
+    paddingBottom: space[2],
+  },
+  landscapeTitle: {
+    flex: 1,
+    fontFamily: font.display,
+    fontSize: fontSize.displayS,
+    fontWeight: fontWeight.regular,
+    color: color.fgOnFelt1,
+    letterSpacing: letterSpacing.display,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  landscapePlayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: suit.heart,
+    paddingHorizontal: space[3] + 2,
+    paddingVertical: space[2],
+    borderRadius: radius.m,
+  },
+  landscapePlayText: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.semibold,
+    color: '#fff',
   },
   backBtn: {
     flexDirection: 'row',
