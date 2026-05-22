@@ -155,23 +155,45 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     setDeck(updated);
   };
 
+  // Reorder operates on the *active* (non-completed) card list, since the
+  // completed cards are pulled out into their own section and aren't shown in
+  // the reorderable list. fromIndex/toIndex are positions within the active
+  // subset; completed refs stay pinned to their original slots.
   const moveCardByIndex = async (fromIndex: number, toIndex: number) => {
     if (!deck || fromIndex === toIndex) return;
-    if (toIndex < 0 || toIndex >= deck.cardRefs.length) return;
 
     const refs = [...deck.cardRefs].sort(
       (a, b) => a.positionInDeck - b.positionInDeck
     );
-    const [moved] = refs.splice(fromIndex, 1);
-    refs.splice(toIndex, 0, moved);
-    refs.forEach((r, i) => (r.positionInDeck = i));
+    const retiredIds = new Set(cards.filter(isCardRetired).map((c) => c.id));
+    const activeRefs = refs.filter((r) => !retiredIds.has(r.cardId));
 
-    const updated = { ...deck, cardRefs: refs };
+    if (
+      fromIndex < 0 ||
+      fromIndex >= activeRefs.length ||
+      toIndex < 0 ||
+      toIndex >= activeRefs.length
+    ) {
+      return;
+    }
+
+    const [moved] = activeRefs.splice(fromIndex, 1);
+    activeRefs.splice(toIndex, 0, moved);
+
+    // Rebuild full ordering: refill active slots from the reordered list,
+    // leaving completed refs where they were.
+    let ai = 0;
+    const rebuilt = refs.map((r) =>
+      retiredIds.has(r.cardId) ? r : activeRefs[ai++]
+    );
+    rebuilt.forEach((r, i) => (r.positionInDeck = i));
+
+    const updated = { ...deck, cardRefs: rebuilt };
     await saveDeck(updated);
     setDeck(updated);
 
     const allCards = await getAllCards();
-    const ordered = refs
+    const ordered = rebuilt
       .map((ref) => allCards.find((c) => c.id === ref.cardId))
       .filter(Boolean) as Card[];
     setCards(ordered);
@@ -322,7 +344,13 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
   const OrderIcon =
     deck.orderMode === 'random' ? RandomOrderIcon : FixedOrderIcon;
 
-  if (isLandscape && cards.length > 0) {
+  // Cards with a completion limit that have used up all their runs are
+  // "completed" — they no longer play, so we pull them out of the active
+  // list and show them in their own section below Deck settings.
+  const activeCards = cards.filter((c) => !isCardRetired(c));
+  const completedCards = cards.filter((c) => isCardRetired(c));
+
+  if (isLandscape && activeCards.length > 0) {
     // Landscape: bypass ScreenContainer's 500px cap so the carousel can use
     // the full viewport width.
     return (
@@ -353,7 +381,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           </Pressable>
         </View>
         <LandscapeDeckView
-          cards={cards}
+          cards={activeCards}
           onReorder={moveCardByIndex}
           onCardPress={(cardId) =>
             navigation.navigate('CardEditor', { cardId, deckId: deck.id })
@@ -465,15 +493,17 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {/* Card list — rendered inline inside the scroll view */}
-        <Text style={styles.sectionTitle}>Cards ({cards.length})</Text>
-        {deck.orderMode === 'fixed' && cards.length > 1 && (
+        {/* Card list — rendered inline inside the scroll view. Only active
+            (not-yet-completed) cards live here; completed ones move to their
+            own section below Deck settings. */}
+        <Text style={styles.sectionTitle}>Cards ({activeCards.length})</Text>
+        {deck.orderMode === 'fixed' && activeCards.length > 1 && (
           <Text style={styles.dragHint}>
             Long-press a card and drag to reorder.
           </Text>
         )}
         <View style={styles.list}>
-          {cards.map((card, index) => {
+          {activeCards.map((card, index) => {
             const retired = isCardRetired(card);
             const remaining =
               card.completionLimit != null
@@ -542,7 +572,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                 <DraggableCardRow
                   key={card.id}
                   index={index}
-                  totalRows={cards.length}
+                  totalRows={activeCards.length}
                   rowHeight={ROW_HEIGHT}
                   onReorder={moveCardByIndex}
                   scrollRef={scrollRef}
@@ -580,8 +610,9 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         </View>
 
         {/* Resume / Play — between cards and deck settings, since it's the
-            primary action once cards exist. */}
-        {cards.length > 0 && (
+            primary action once cards exist. Only shown when there are active
+            cards left to play. */}
+        {activeCards.length > 0 && (
           <Pressable style={styles.resumeBottom} onPress={startOrResume}>
             <PlayIcon size={18} color="#fff" strokeWidth={2.2} />
             <Text style={styles.resumeBottomText}>{runLabel}</Text>
@@ -655,6 +686,47 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
             )}
           </View>
         </View>
+
+        {/* Completed — temporary cards that have used up all their runs. They
+            no longer play, so they live here below the deck settings rather
+            than cluttering the active card list. */}
+        {completedCards.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>
+              Completed ({completedCards.length})
+            </Text>
+            <View style={styles.list}>
+              {completedCards.map((card) => (
+                <Pressable
+                  key={card.id}
+                  style={[styles.cardRow, styles.cardRowRetired]}
+                  onPress={() =>
+                    navigation.navigate('CardEditor', {
+                      cardId: card.id,
+                      deckId: deck.id,
+                    })
+                  }
+                >
+                  <View style={styles.gripHandle}>
+                    <CheckIcon size={16} color={suit.heart} strokeWidth={2} />
+                  </View>
+                  <Text
+                    style={[styles.cardTitle, styles.cardTitleRetired]}
+                    numberOfLines={1}
+                  >
+                    {card.title}
+                  </Text>
+                  <View style={[styles.limitBadge, styles.limitBadgeDone]}>
+                    <Text style={[styles.limitBadgeText, styles.limitBadgeDoneText]}>
+                      Done
+                    </Text>
+                  </View>
+                  <ChevronRightIcon size={16} color={color.fg4} />
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
