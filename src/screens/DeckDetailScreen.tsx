@@ -482,23 +482,17 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                     card.completionLimit - (card.completionCount ?? 0)
                   )
                 : null;
-            const rowContent = (
-              <Pressable
-                style={[styles.cardRow, retired && styles.cardRowRetired]}
-                onPress={() =>
-                  navigation.navigate('CardEditor', {
-                    cardId: card.id,
-                    deckId: deck.id,
-                  })
-                }
-              >
-                {deck.orderMode === 'fixed' ? (
-                  <View style={styles.gripHandle}>
-                    <FixedOrderIcon size={16} color={color.fg4} strokeWidth={2} />
-                  </View>
-                ) : (
-                  <Text style={styles.cardIndex}>{index + 1}</Text>
-                )}
+
+            const openEditor = () =>
+              navigation.navigate('CardEditor', {
+                cardId: card.id,
+                deckId: deck.id,
+              });
+
+            // Row body — everything to the right of the grip/index. Shared by
+            // both the draggable (fixed) and static (random) row variants.
+            const bodyContent = (
+              <>
                 <Text
                   style={[styles.cardTitle, retired && styles.cardTitleRetired]}
                   numberOfLines={1}
@@ -538,10 +532,11 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                   {renderStatusIcon(card.id)}
                 </View>
                 <ChevronRightIcon size={16} color={color.fg4} />
-              </Pressable>
+              </>
             );
 
-            // Drag-to-reorder only makes sense in fixed order mode
+            // Drag-to-reorder only makes sense in fixed order mode. The Pan
+            // gesture lives on the grip handle; the body opens the editor.
             if (deck.orderMode === 'fixed') {
               return (
                 <DraggableCardRow
@@ -552,13 +547,35 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                   onReorder={moveCardByIndex}
                   scrollRef={scrollRef}
                   scrollOffsetRef={scrollOffsetRef}
+                  onPress={openEditor}
+                  onLongPress={openEditor}
+                  rowStyle={[styles.cardRow, retired && styles.cardRowRetired]}
+                  bodyStyle={styles.cardBody}
+                  handle={
+                    <View style={styles.gripHandle}>
+                      <FixedOrderIcon
+                        size={16}
+                        color={color.fg4}
+                        strokeWidth={2}
+                      />
+                    </View>
+                  }
                 >
-                  {rowContent}
+                  {bodyContent}
                 </DraggableCardRow>
               );
             }
 
-            return <View key={card.id}>{rowContent}</View>;
+            return (
+              <Pressable
+                key={card.id}
+                style={[styles.cardRow, retired && styles.cardRowRetired]}
+                onPress={openEditor}
+              >
+                <Text style={styles.cardIndex}>{index + 1}</Text>
+                {bodyContent}
+              </Pressable>
+            );
           })}
         </View>
 
@@ -872,6 +889,11 @@ const styles = StyleSheet.create({
     marginBottom: space[1] + 2,
     borderWidth: 1,
     borderColor: color.cardStroke,
+    gap: space[2] + 2,
+  },
+  cardBody: {
+    // The grip + body are now separate flex children, so the body needs its
+    // own inter-item gap (the row's gap only spaces grip-from-body).
     gap: space[2] + 2,
   },
   cardIndex: {
