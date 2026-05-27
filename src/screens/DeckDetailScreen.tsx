@@ -215,6 +215,16 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         composer.completionLimit != null && composer.completionLimit > 0
           ? composer.completionLimit
           : undefined,
+      prompt:
+        composer.prompt && (composer.prompt.scale || composer.prompt.text)
+          ? {
+              scale: composer.prompt.scale,
+              text: composer.prompt.text,
+              label: composer.prompt.label?.trim()
+                ? composer.prompt.label.trim()
+                : undefined,
+            }
+          : undefined,
     };
     await saveCard(newCard);
     const updated: Deck = {
