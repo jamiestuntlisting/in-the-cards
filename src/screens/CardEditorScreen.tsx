@@ -30,7 +30,6 @@ import {
 } from '../design/tokens';
 import CardComposer, {
   LimitRow,
-  QuestionRow,
   type CardState,
 } from '../components/CardComposer';
 import CardAnalytics from '../components/CardAnalytics';
@@ -177,10 +176,6 @@ export default function CardEditorScreen({ route, navigation }: Props) {
 
         <View style={styles.limitWrap}>
           <LimitRow state={state} onChange={setState} />
-        </View>
-
-        <View style={styles.limitWrap}>
-          <QuestionRow state={state} onChange={setState} />
         </View>
 
         {!isNew && cardId && <CardAnalytics cardId={cardId} />}

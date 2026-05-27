@@ -68,7 +68,7 @@ export default function CardComposer({
   size = 'full',
   identity = DEFAULT_IDENTITY,
 }: Props) {
-  const { title, blocks, timerSeconds, link } = state;
+  const { title, blocks, timerSeconds, link, prompt } = state;
   const pipColor = colorForSuit(identity.suit);
 
   const set = (patch: Partial<CardState>) => onChange({ ...state, ...patch });
@@ -105,6 +105,16 @@ export default function CardComposer({
   const toggleTimer = () =>
     set({ timerSeconds: timerSeconds == null ? 60 : undefined });
   const toggleLink = () => set({ link: link == null ? '' : undefined });
+  // Question: toggling on defaults to a 0–10 scale; off clears the prompt.
+  const toggleQuestion = () =>
+    set({ prompt: prompt == null ? { scale: true, text: false } : undefined });
+  const togglePromptType = (key: 'scale' | 'text') => {
+    if (!prompt) return;
+    const next = { ...prompt, [key]: !prompt[key] };
+    // Keep at least one answer type selected.
+    if (!next.scale && !next.text) return;
+    set({ prompt: next });
+  };
 
   const cardStyle = size === 'inline' ? styles.cardInline : styles.cardFull;
   const titleStyle =
@@ -213,6 +223,57 @@ export default function CardComposer({
               </Pressable>
             </View>
           )}
+
+          {prompt != null && (
+            <View style={styles.promptRow}>
+              <TextInput
+                value={prompt.label ?? ''}
+                onChangeText={(v) => set({ prompt: { ...prompt, label: v } })}
+                placeholder="Question (e.g. How did it go?)"
+                placeholderTextColor={color.fg4}
+                style={styles.promptLabelInput}
+              />
+              <View style={styles.promptChipRow}>
+                <Pressable
+                  onPress={() => togglePromptType('scale')}
+                  style={[
+                    styles.promptChip,
+                    prompt.scale && styles.promptChipActive,
+                  ]}
+                  accessibilityLabel="Toggle 0 to 10 scale answer"
+                >
+                  <Text
+                    style={[
+                      styles.promptChipText,
+                      prompt.scale && styles.promptChipTextActive,
+                    ]}
+                  >
+                    0–10 scale
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => togglePromptType('text')}
+                  style={[
+                    styles.promptChip,
+                    prompt.text && styles.promptChipActive,
+                  ]}
+                  accessibilityLabel="Toggle text answer"
+                >
+                  <Text
+                    style={[
+                      styles.promptChipText,
+                      prompt.text && styles.promptChipTextActive,
+                    ]}
+                  >
+                    Text note
+                  </Text>
+                </Pressable>
+                <Pressable onPress={toggleQuestion} hitSlop={6}>
+                  <SkipIcon size={14} color={color.fg4} strokeWidth={2} />
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -266,6 +327,28 @@ export default function CardComposer({
             ]}
           >
             Link
+          </Text>
+        </ToolButton>
+        <ToolButton
+          label="Question"
+          onPress={toggleQuestion}
+          active={prompt != null}
+        >
+          <Text
+            style={[
+              styles.toolQuestion,
+              prompt != null && styles.toolTextActive,
+            ]}
+          >
+            ?
+          </Text>
+          <Text
+            style={[
+              styles.toolText,
+              prompt != null && styles.toolTextActive,
+            ]}
+          >
+            Question
           </Text>
         </ToolButton>
       </View>
@@ -459,176 +542,6 @@ export function LimitRow({
     </View>
   );
 }
-
-/**
- * Configures the optional per-card question (the "prompt"). Mirrors LimitRow's
- * shape: a master switch to enable the question, then — when on — a label input
- * and two toggle chips for the answer types (0–10 scale and/or free text).
- * Lives outside CardComposer so the card preview stays focused on content.
- */
-export function QuestionRow({
-  state,
-  onChange,
-  onFelt = false,
-}: {
-  state: CardState;
-  onChange: (next: CardState) => void;
-  onFelt?: boolean;
-}) {
-  const { prompt } = state;
-  const enabled = prompt != null;
-  const labelColor = onFelt ? color.fgOnFelt1 : color.fg1;
-  const subColor = onFelt ? color.fgOnFelt2 : color.fg3;
-  const chipBorder = onFelt ? color.hairlineOnFelt : color.hairline;
-
-  const setPrompt = (patch: Partial<CardPrompt>) => {
-    if (!prompt) return;
-    onChange({ ...state, prompt: { ...prompt, ...patch } });
-  };
-
-  const toggleType = (key: 'scale' | 'text') => {
-    if (!prompt) return;
-    const next = { ...prompt, [key]: !prompt[key] };
-    // Don't let both answer types turn off — keep at least one selected.
-    if (!next.scale && !next.text) return;
-    onChange({ ...state, prompt: next });
-  };
-
-  return (
-    <View style={questionStyles.wrap}>
-      <View style={questionStyles.headerRow}>
-        <View style={questionStyles.labelWrap}>
-          <Text style={[questionStyles.label, { color: labelColor }]}>
-            Ask a question
-          </Text>
-          <Text style={[questionStyles.suffix, { color: subColor }]}>
-            {enabled ? 'Recorded when completed' : 'Off'}
-          </Text>
-        </View>
-        <Switch
-          value={enabled}
-          onValueChange={(v) =>
-            onChange({
-              ...state,
-              // Default a freshly-enabled prompt to the 0–10 scale.
-              prompt: v ? { scale: true, text: false } : undefined,
-            })
-          }
-          trackColor={{ true: suit.heart, false: color.hairline }}
-          thumbColor="#fff"
-        />
-      </View>
-
-      {enabled && prompt && (
-        <>
-          <TextInput
-            value={prompt.label ?? ''}
-            onChangeText={(v) => setPrompt({ label: v })}
-            placeholder="Question (e.g. How did it go?)"
-            placeholderTextColor={onFelt ? color.fgOnFelt3 : color.fg4}
-            style={[
-              questionStyles.labelInput,
-              { color: labelColor, borderColor: chipBorder },
-            ]}
-          />
-          <View style={questionStyles.chipRow}>
-            <Pressable
-              onPress={() => toggleType('scale')}
-              style={[
-                questionStyles.chip,
-                { borderColor: chipBorder },
-                prompt.scale && questionStyles.chipActive,
-              ]}
-              accessibilityLabel="Toggle 0 to 10 scale answer"
-            >
-              <Text
-                style={[
-                  questionStyles.chipText,
-                  { color: prompt.scale ? '#fff' : labelColor },
-                ]}
-              >
-                0–10 scale
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => toggleType('text')}
-              style={[
-                questionStyles.chip,
-                { borderColor: chipBorder },
-                prompt.text && questionStyles.chipActive,
-              ]}
-              accessibilityLabel="Toggle text answer"
-            >
-              <Text
-                style={[
-                  questionStyles.chipText,
-                  { color: prompt.text ? '#fff' : labelColor },
-                ]}
-              >
-                Text note
-              </Text>
-            </Pressable>
-          </View>
-        </>
-      )}
-    </View>
-  );
-}
-
-const questionStyles = StyleSheet.create({
-  wrap: {
-    paddingVertical: space[2] + 2,
-    paddingHorizontal: space[1],
-    gap: space[2] + 2,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  labelWrap: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: space[2],
-    flex: 1,
-  },
-  label: {
-    fontFamily: font.text,
-    fontSize: fontSize.ui,
-    fontWeight: fontWeight.medium,
-  },
-  suffix: {
-    fontFamily: font.text,
-    fontSize: fontSize.bodyS,
-  },
-  labelInput: {
-    fontFamily: font.text,
-    fontSize: fontSize.ui,
-    borderWidth: 1,
-    borderRadius: radius.m,
-    paddingHorizontal: space[3],
-    paddingVertical: space[2],
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: space[2],
-  },
-  chip: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2] - 1,
-    borderRadius: radius.full,
-    borderWidth: 1,
-  },
-  chipActive: {
-    backgroundColor: suit.heart,
-    borderColor: suit.heart,
-  },
-  chipText: {
-    fontFamily: font.text,
-    fontSize: fontSize.bodyS,
-    fontWeight: fontWeight.medium,
-  },
-});
 
 const limitStyles = StyleSheet.create({
   row: {
@@ -867,6 +780,49 @@ const styles = StyleSheet.create({
     color: suit.club,
     flex: 1,
   },
+  // Question config block inside card
+  promptRow: {
+    alignSelf: 'stretch',
+    minWidth: 0,
+    marginTop: space[1] + 2,
+    gap: space[2],
+  },
+  promptLabelInput: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg1,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: color.hairline,
+    borderRadius: radius.s,
+    paddingHorizontal: space[2],
+    paddingVertical: space[1] + 1,
+  },
+  promptChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space[2],
+    flexWrap: 'wrap',
+  },
+  promptChip: {
+    paddingHorizontal: space[2] + 2,
+    paddingVertical: space[1],
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: color.hairline,
+  },
+  promptChipActive: {
+    backgroundColor: suit.heart,
+    borderColor: suit.heart,
+  },
+  promptChipText: {
+    fontFamily: font.text,
+    fontSize: fontSize.micro,
+    fontWeight: fontWeight.medium,
+    color: color.fg2,
+  },
+  promptChipTextActive: { color: '#fff' },
   // Link row inside card
   linkRow: {
     flexDirection: 'row',
@@ -915,5 +871,11 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
   },
   toolLink: { fontSize: 12 },
+  toolQuestion: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    fontWeight: fontWeight.bold,
+    color: color.link,
+  },
   toolTextActive: { color: '#fff' },
 });
