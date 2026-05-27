@@ -35,7 +35,7 @@ import {
   colorForSuit,
 } from '../cardIdentity';
 import { SuitGlyph } from '../SwipeableCard';
-import type { ContentBlock } from '../data/types';
+import type { ContentBlock, CardPrompt } from '../data/types';
 
 export interface CardState {
   title: string;
@@ -44,6 +44,8 @@ export interface CardState {
   link?: string;
   /** When set, the card retires from future runs after this many right-swipes. */
   completionLimit?: number;
+  /** Optional question asked during play; answer recorded on complete. */
+  prompt?: CardPrompt;
 }
 
 interface Props {
@@ -457,6 +459,176 @@ export function LimitRow({
     </View>
   );
 }
+
+/**
+ * Configures the optional per-card question (the "prompt"). Mirrors LimitRow's
+ * shape: a master switch to enable the question, then — when on — a label input
+ * and two toggle chips for the answer types (0–10 scale and/or free text).
+ * Lives outside CardComposer so the card preview stays focused on content.
+ */
+export function QuestionRow({
+  state,
+  onChange,
+  onFelt = false,
+}: {
+  state: CardState;
+  onChange: (next: CardState) => void;
+  onFelt?: boolean;
+}) {
+  const { prompt } = state;
+  const enabled = prompt != null;
+  const labelColor = onFelt ? color.fgOnFelt1 : color.fg1;
+  const subColor = onFelt ? color.fgOnFelt2 : color.fg3;
+  const chipBorder = onFelt ? color.hairlineOnFelt : color.hairline;
+
+  const setPrompt = (patch: Partial<CardPrompt>) => {
+    if (!prompt) return;
+    onChange({ ...state, prompt: { ...prompt, ...patch } });
+  };
+
+  const toggleType = (key: 'scale' | 'text') => {
+    if (!prompt) return;
+    const next = { ...prompt, [key]: !prompt[key] };
+    // Don't let both answer types turn off — keep at least one selected.
+    if (!next.scale && !next.text) return;
+    onChange({ ...state, prompt: next });
+  };
+
+  return (
+    <View style={questionStyles.wrap}>
+      <View style={questionStyles.headerRow}>
+        <View style={questionStyles.labelWrap}>
+          <Text style={[questionStyles.label, { color: labelColor }]}>
+            Ask a question
+          </Text>
+          <Text style={[questionStyles.suffix, { color: subColor }]}>
+            {enabled ? 'Recorded when completed' : 'Off'}
+          </Text>
+        </View>
+        <Switch
+          value={enabled}
+          onValueChange={(v) =>
+            onChange({
+              ...state,
+              // Default a freshly-enabled prompt to the 0–10 scale.
+              prompt: v ? { scale: true, text: false } : undefined,
+            })
+          }
+          trackColor={{ true: suit.heart, false: color.hairline }}
+          thumbColor="#fff"
+        />
+      </View>
+
+      {enabled && prompt && (
+        <>
+          <TextInput
+            value={prompt.label ?? ''}
+            onChangeText={(v) => setPrompt({ label: v })}
+            placeholder="Question (e.g. How did it go?)"
+            placeholderTextColor={onFelt ? color.fgOnFelt3 : color.fg4}
+            style={[
+              questionStyles.labelInput,
+              { color: labelColor, borderColor: chipBorder },
+            ]}
+          />
+          <View style={questionStyles.chipRow}>
+            <Pressable
+              onPress={() => toggleType('scale')}
+              style={[
+                questionStyles.chip,
+                { borderColor: chipBorder },
+                prompt.scale && questionStyles.chipActive,
+              ]}
+              accessibilityLabel="Toggle 0 to 10 scale answer"
+            >
+              <Text
+                style={[
+                  questionStyles.chipText,
+                  { color: prompt.scale ? '#fff' : labelColor },
+                ]}
+              >
+                0–10 scale
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => toggleType('text')}
+              style={[
+                questionStyles.chip,
+                { borderColor: chipBorder },
+                prompt.text && questionStyles.chipActive,
+              ]}
+              accessibilityLabel="Toggle text answer"
+            >
+              <Text
+                style={[
+                  questionStyles.chipText,
+                  { color: prompt.text ? '#fff' : labelColor },
+                ]}
+              >
+                Text note
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+const questionStyles = StyleSheet.create({
+  wrap: {
+    paddingVertical: space[2] + 2,
+    paddingHorizontal: space[1],
+    gap: space[2] + 2,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  labelWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space[2],
+    flex: 1,
+  },
+  label: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    fontWeight: fontWeight.medium,
+  },
+  suffix: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+  },
+  labelInput: {
+    fontFamily: font.text,
+    fontSize: fontSize.ui,
+    borderWidth: 1,
+    borderRadius: radius.m,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: space[2],
+  },
+  chip: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[2] - 1,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  chipActive: {
+    backgroundColor: suit.heart,
+    borderColor: suit.heart,
+  },
+  chipText: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    fontWeight: fontWeight.medium,
+  },
+});
 
 const limitStyles = StyleSheet.create({
   row: {

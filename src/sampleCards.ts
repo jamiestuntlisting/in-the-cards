@@ -8,6 +8,12 @@ export interface CardData {
    *  view can render the remaining-runs line without a separate type. */
   completionLimit?: number;
   completionCount?: number;
+  /** Optional question asked during play — see CardPrompt in data/types.ts. */
+  prompt?: {
+    label?: string;
+    scale: boolean;
+    text: boolean;
+  };
 }
 
 export const TUTORIAL_DECK: CardData[] = [

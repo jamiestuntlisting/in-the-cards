@@ -30,8 +30,10 @@ import {
 } from '../design/tokens';
 import CardComposer, {
   LimitRow,
+  QuestionRow,
   type CardState,
 } from '../components/CardComposer';
+import CardAnalytics from '../components/CardAnalytics';
 import ScreenContainer from '../components/ScreenContainer';
 import { identityFor } from '../cardIdentity';
 
@@ -61,6 +63,7 @@ export default function CardEditorScreen({ route, navigation }: Props) {
             timerSeconds: c.timer?.durationSeconds,
             link: c.link,
             completionLimit: c.completionLimit,
+            prompt: c.prompt,
           });
         }
       });
@@ -105,6 +108,17 @@ export default function CardEditorScreen({ route, navigation }: Props) {
           ? state.completionLimit
           : undefined,
       completionCount: existing?.completionCount,
+      // Persist the prompt only if it actually asks for an answer.
+      prompt:
+        state.prompt && (state.prompt.scale || state.prompt.text)
+          ? {
+              scale: state.prompt.scale,
+              text: state.prompt.text,
+              label: state.prompt.label?.trim()
+                ? state.prompt.label.trim()
+                : undefined,
+            }
+          : undefined,
     };
 
     await saveCard(card);
@@ -164,6 +178,12 @@ export default function CardEditorScreen({ route, navigation }: Props) {
         <View style={styles.limitWrap}>
           <LimitRow state={state} onChange={setState} />
         </View>
+
+        <View style={styles.limitWrap}>
+          <QuestionRow state={state} onChange={setState} />
+        </View>
+
+        {!isNew && cardId && <CardAnalytics cardId={cardId} />}
 
         {!isNew && (
           <Pressable style={styles.deleteBtn} onPress={handleDelete}>
