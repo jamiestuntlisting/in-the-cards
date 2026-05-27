@@ -19,7 +19,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import type { Card, Deck, DailyRun, LiveCardState } from '../data/types';
-import { isCardRetired } from '../data/types';
+import { isCardRetired, promptIsActive } from '../data/types';
 import {
   getDeck,
   getAllDecks,
@@ -32,10 +32,15 @@ import {
   deleteDeck,
   addLog,
   deleteLog,
+  addResponse,
+  deleteResponse,
   todayString,
   generateId,
 } from '../data/storage';
-import SwipeableCard, { SwipeDirection } from '../SwipeableCard';
+import SwipeableCard, {
+  SwipeDirection,
+  type ResponseDraft,
+} from '../SwipeableCard';
 import CardStack from '../CardStack';
 import DeckComplete from '../DeckComplete';
 import { identityFor } from '../cardIdentity';
@@ -86,6 +91,10 @@ export default function PlayScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const totalSwiped = React.useRef(0);
 
+  // Draft answer to the current card's prompt. Reset whenever the top card
+  // changes; captured into a CardResponse on right-swipe (complete).
+  const [responseDraft, setResponseDraft] = useState<ResponseDraft>({});
+
   // Undo stack: snapshot of state before the most recent swipe
   type Snapshot = {
     cards: Card[];
@@ -98,6 +107,10 @@ export default function PlayScreen({ route, navigation }: Props) {
      *  card-level completionCount when the user undoes a right-swipe. */
     swipedCardId: string;
     direction: SwipeDirection;
+    /** Prompt response saved on this swipe, if any — deleted on undo. */
+    responseId?: string;
+    /** The draft to restore into the inputs if the swipe is undone. */
+    responseDraft?: ResponseDraft;
   };
   const [undoSnapshot, setUndoSnapshot] = useState<Snapshot | null>(null);
 
@@ -283,6 +296,31 @@ export default function PlayScreen({ route, navigation }: Props) {
         timestamp: Date.now(),
       });
 
+      // Capture a prompt response on complete (right-swipe), when the card
+      // asks a question and the user actually entered an answer.
+      let savedResponseId: string | undefined;
+      if (direction === 'right' && promptIsActive(currentCard.prompt)) {
+        const hasScale =
+          !!currentCard.prompt?.scale &&
+          typeof responseDraft.scale === 'number';
+        const hasText =
+          !!currentCard.prompt?.text &&
+          responseDraft.text != null &&
+          responseDraft.text.trim().length > 0;
+        if (hasScale || hasText) {
+          savedResponseId = generateId();
+          await addResponse({
+            id: savedResponseId,
+            cardId: currentCard.id,
+            deckId,
+            date,
+            timestamp: Date.now(),
+            scale: hasScale ? responseDraft.scale : undefined,
+            text: hasText ? responseDraft.text!.trim() : undefined,
+          });
+        }
+      }
+
       // Snapshot state BEFORE the swipe for undo
       setUndoSnapshot({
         cards: [...cards],
@@ -293,6 +331,8 @@ export default function PlayScreen({ route, navigation }: Props) {
         logId,
         swipedCardId: currentCard.id,
         direction,
+        responseId: savedResponseId,
+        responseDraft: { ...responseDraft },
       });
 
       // Helper: auto-remove the tutorial deck once the user finishes it.
@@ -444,6 +484,10 @@ export default function PlayScreen({ route, navigation }: Props) {
           break;
         }
       }
+
+      // A new card is now on top (or the deck is done) — clear the answer
+      // draft so the next card's prompt starts empty. Undo restores it.
+      setResponseDraft({});
     },
     [
       cards,
@@ -452,6 +496,7 @@ export default function PlayScreen({ route, navigation }: Props) {
       stats,
       date,
       deckId,
+      responseDraft,
       triggerFlipReveal,
       triggerShuffleJitter,
     ]
@@ -462,6 +507,10 @@ export default function PlayScreen({ route, navigation }: Props) {
     if (!undoSnapshot || !run) return;
     // Remove the log entry
     await deleteLog(undoSnapshot.logId);
+    // Remove any prompt response saved on this swipe.
+    if (undoSnapshot.responseId) {
+      await deleteResponse(undoSnapshot.responseId);
+    }
     // If the undone swipe was a right-swipe, roll back the lifetime
     // completion counter so the card doesn't retire prematurely.
     if (undoSnapshot.direction === 'right') {
@@ -475,6 +524,8 @@ export default function PlayScreen({ route, navigation }: Props) {
     setCards(undoSnapshot.cards);
     setCurrentIndex(undoSnapshot.currentIndex);
     setStats(undoSnapshot.stats);
+    // Restore the answer draft so the user can re-complete with their answer.
+    setResponseDraft(undoSnapshot.responseDraft ?? {});
     const restoredRun: DailyRun = {
       ...run,
       liveCardStates: undoSnapshot.runLiveStates,
@@ -716,6 +767,10 @@ export default function PlayScreen({ route, navigation }: Props) {
               onSwipe={handleSwipe}
               onLongPress={handleLongPressEdit}
               flipProgress={flipProgress}
+              responseDraft={responseDraft}
+              onResponseChange={(patch) =>
+                setResponseDraft((prev) => ({ ...prev, ...patch }))
+              }
             />
           )}
         </View>

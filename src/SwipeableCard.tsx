@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   Pressable,
+  TextInput,
   Linking,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -48,6 +49,12 @@ import {
 
 export type SwipeDirection = 'right' | 'left' | 'up' | 'down';
 
+/** In-progress answer to a card's prompt, captured on complete. */
+export interface ResponseDraft {
+  scale?: number;
+  text?: string;
+}
+
 interface SwipeableCardProps {
   card: CardData;
   identity?: CardIdentity;
@@ -55,6 +62,10 @@ interface SwipeableCardProps {
   onLongPress: () => void;
   /** Flip-reveal: 0 = face-down (rotated), 1 = face-up */
   flipProgress: Animated.SharedValue<number>;
+  /** Current answer draft for this card's prompt (controlled by PlayScreen). */
+  responseDraft?: ResponseDraft;
+  /** Update the answer draft as the user picks a rating / types a note. */
+  onResponseChange?: (patch: ResponseDraft) => void;
 }
 
 /**
@@ -117,8 +128,12 @@ export default function SwipeableCard({
   onSwipe,
   onLongPress,
   flipProgress,
+  responseDraft,
+  onResponseChange,
 }: SwipeableCardProps) {
   const pipColor = colorForSuit(identity.suit);
+  const hasPrompt =
+    !!card.prompt && (card.prompt.scale || card.prompt.text);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const cardRotation = useSharedValue(0);
@@ -377,6 +392,57 @@ export default function SwipeableCard({
             </Pressable>
           )}
 
+          {hasPrompt && (
+            <View style={styles.promptWrap}>
+              {card.prompt!.label ? (
+                <Text style={styles.promptLabel}>{card.prompt!.label}</Text>
+              ) : null}
+
+              {card.prompt!.scale && (
+                <View style={styles.scaleRow}>
+                  {Array.from({ length: 11 }, (_, n) => {
+                    const selected = responseDraft?.scale === n;
+                    return (
+                      <Pressable
+                        key={n}
+                        onPress={() => onResponseChange?.({ scale: n })}
+                        style={[
+                          styles.scaleBtn,
+                          selected && {
+                            backgroundColor: pipColor,
+                            borderColor: pipColor,
+                          },
+                        ]}
+                        hitSlop={2}
+                        accessibilityLabel={`Rate ${n}`}
+                      >
+                        <Text
+                          style={[
+                            styles.scaleBtnText,
+                            selected && styles.scaleBtnTextSelected,
+                          ]}
+                        >
+                          {n}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {card.prompt!.text && (
+                <TextInput
+                  value={responseDraft?.text ?? ''}
+                  onChangeText={(v) => onResponseChange?.({ text: v })}
+                  placeholder="Add a note…"
+                  placeholderTextColor={color.fg4}
+                  style={styles.promptInput}
+                  multiline
+                />
+              )}
+            </View>
+          )}
+
           {card.completionLimit != null && card.completionLimit > 1 && (
             <Text style={styles.remainingText}>
               {(() => {
@@ -489,6 +555,57 @@ const styles = StyleSheet.create({
     fontSize: fontSize.bodyS,
     color: color.link,
     marginTop: space[2],
+    textAlign: 'center',
+  },
+  // Prompt (question) block on the card face.
+  promptWrap: {
+    alignSelf: 'stretch',
+    marginTop: space[3],
+    gap: space[2] + 2,
+  },
+  promptLabel: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    fontWeight: fontWeight.semibold,
+    color: color.fg2,
+    textAlign: 'center',
+  },
+  scaleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  scaleBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: color.hairline,
+    backgroundColor: color.bgRaised,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scaleBtnText: {
+    fontFamily: font.mono,
+    fontSize: fontSize.bodyS,
+    fontWeight: fontWeight.medium,
+    color: color.fg2,
+  },
+  scaleBtnTextSelected: {
+    color: '#fff',
+    fontWeight: fontWeight.bold,
+  },
+  promptInput: {
+    fontFamily: font.text,
+    fontSize: fontSize.bodyS,
+    color: color.fg1,
+    borderWidth: 1,
+    borderColor: color.hairline,
+    borderRadius: radius.m,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    minHeight: 40,
     textAlign: 'center',
   },
   // "3 more times" footer for cards with completionLimit > 1.

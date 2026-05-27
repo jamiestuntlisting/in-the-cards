@@ -5,6 +5,7 @@ import type {
   Deck,
   DailyRun,
   CompletionLog,
+  CardResponse,
   Goal,
   Settings,
 } from './types';
@@ -16,6 +17,7 @@ const KEYS = {
   DECKS: 'itc:decks',
   DAILY_RUNS: 'itc:daily_runs',
   COMPLETION_LOGS: 'itc:completion_logs',
+  CARD_RESPONSES: 'itc:card_responses',
   GOALS: 'itc:goals',
   SETTINGS: 'itc:settings',
   SEEDED: 'itc:tutorial_seeded',
@@ -111,6 +113,14 @@ export async function deleteCard(id: string): Promise<void> {
       deck.cardRefs.forEach((r, i) => (r.positionInDeck = i));
       await saveDeck(deck);
     }
+  }
+  // Drop any recorded prompt responses for the deleted card.
+  const responses = await getAllResponses();
+  if (responses.some((r) => r.cardId === id)) {
+    await setJSON(
+      KEYS.CARD_RESPONSES,
+      responses.filter((r) => r.cardId !== id)
+    );
   }
 }
 
@@ -295,6 +305,35 @@ export async function deleteLog(logId: string): Promise<void> {
   await setJSON(
     KEYS.COMPLETION_LOGS,
     logs.filter((l) => l.id !== logId)
+  );
+}
+
+// ─── Card Responses (prompt answers) ───
+
+export async function getAllResponses(): Promise<CardResponse[]> {
+  return (await getJSON<CardResponse[]>(KEYS.CARD_RESPONSES)) ?? [];
+}
+
+export async function addResponse(response: CardResponse): Promise<void> {
+  const responses = await getAllResponses();
+  responses.push(response);
+  await setJSON(KEYS.CARD_RESPONSES, responses);
+}
+
+export async function getResponsesForCard(
+  cardId: string
+): Promise<CardResponse[]> {
+  const responses = await getAllResponses();
+  return responses
+    .filter((r) => r.cardId === cardId)
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function deleteResponse(responseId: string): Promise<void> {
+  const responses = await getAllResponses();
+  await setJSON(
+    KEYS.CARD_RESPONSES,
+    responses.filter((r) => r.id !== responseId)
   );
 }
 
