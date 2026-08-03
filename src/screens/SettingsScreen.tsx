@@ -24,6 +24,14 @@ import {
   resetAllData,
   type DataCounts,
 } from '../data/storage';
+import {
+  getSyncCode,
+  getSyncStatus,
+  enableSync,
+  disableSync,
+  pushNow,
+  pullNow,
+} from '../data/sync';
 import TimeInput from '../components/TimeInput';
 import {
   color,
@@ -46,6 +54,52 @@ export default function SettingsScreen({ navigation }: Props) {
   const [exportText, setExportText] = useState<string | null>(null);
   const [importText, setImportText] = useState('');
   const [showRaw, setShowRaw] = useState(false);
+
+  // Cloud sync state
+  const [syncEnabled, setSyncEnabled] = useState(!!getSyncCode());
+  const [syncCodeInput, setSyncCodeInput] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const handleEnableSync = async () => {
+    setSyncBusy(true);
+    setSyncMessage(null);
+    const result = await enableSync(syncCodeInput);
+    setSyncBusy(false);
+    if (result.ok) {
+      setSyncEnabled(true);
+      setSyncCodeInput('');
+      setSyncMessage('Sync is on. Your data is now backed up automatically.');
+      await refreshCounts();
+    } else {
+      setSyncMessage(result.error ?? 'Could not enable sync.');
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setSyncBusy(true);
+    setSyncMessage(null);
+    const pull = await pullNow();
+    const push = await pushNow();
+    setSyncBusy(false);
+    if (pull.ok && push.ok) {
+      setSyncMessage('Synced.');
+      await refreshCounts();
+    } else {
+      setSyncMessage(pull.error ?? push.error ?? 'Sync failed.');
+    }
+  };
+
+  const handleDisableSync = () => {
+    const confirmed = window.confirm(
+      'Turn off cloud sync on this device? Your data stays on the server ' +
+        'and on this device; it just stops syncing.'
+    );
+    if (!confirmed) return;
+    disableSync();
+    setSyncEnabled(false);
+    setSyncMessage('Sync is off.');
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -182,6 +236,78 @@ export default function SettingsScreen({ navigation }: Props) {
           })}
         </View>
 
+        {/* Cloud Sync — automatic server backup keyed by a secret sync code */}
+        <Text style={[styles.label, { marginTop: space[6] }]}>Cloud Sync</Text>
+        <Text style={styles.hint}>
+          {syncEnabled
+            ? 'Every change is backed up to the cloud automatically. Enter the same sync code on another device to load your cards there.'
+            : 'Invent a secret sync code (like a passphrase, 6+ characters). Your cards back up to the cloud automatically and follow you to any device where you enter the same code.'}
+        </Text>
+
+        {!syncEnabled ? (
+          <>
+            <TextInput
+              style={styles.input}
+              value={syncCodeInput}
+              onChangeText={setSyncCodeInput}
+              placeholder="Your secret sync code"
+              placeholderTextColor={color.fg4}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Pressable
+              style={[
+                styles.dataBtn,
+                styles.dataBtnPrimary,
+                (syncBusy || syncCodeInput.trim().length < 6) &&
+                  styles.dataBtnDisabled,
+              ]}
+              onPress={handleEnableSync}
+              disabled={syncBusy || syncCodeInput.trim().length < 6}
+            >
+              <Text style={styles.dataBtnPrimaryText}>
+                {syncBusy ? 'Connecting…' : 'Turn on sync'}
+              </Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            {(() => {
+              const s = getSyncStatus();
+              const last = s.lastPushAt ?? s.lastPullAt;
+              return (
+                <View style={styles.dataCard}>
+                  <Text style={styles.dataCountsText}>
+                    Sync is ON
+                    {last
+                      ? ` • last synced ${new Date(
+                          last
+                        ).toLocaleString()}`
+                      : ''}
+                  </Text>
+                </View>
+              );
+            })()}
+            <View style={styles.dataButtons}>
+              <Pressable
+                style={[styles.dataBtn, syncBusy && styles.dataBtnDisabled]}
+                onPress={handleSyncNow}
+                disabled={syncBusy}
+              >
+                <Text style={styles.dataBtnText}>
+                  {syncBusy ? 'Syncing…' : 'Sync now'}
+                </Text>
+              </Pressable>
+              <Pressable style={styles.dataBtn} onPress={handleDisableSync}>
+                <Text style={[styles.dataBtnText, { color: suit.heart }]}>
+                  Turn off
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+        {syncMessage && <Text style={styles.hint}>{syncMessage}</Text>}
+
         {/* Data — backup / restore / transfer across devices */}
         <Text style={[styles.label, { marginTop: space[6] }]}>Data</Text>
         <Text style={styles.hint}>
@@ -273,7 +399,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
         <Text style={[styles.label, { marginTop: space[6] }]}>About</Text>
         <Text style={styles.aboutText}>
-          In the Cards v0.4.0 (data-transfer){'\n'}
+          In the Cards v0.5.0 (cloud-sync){'\n'}
           A card-based daily routine app.
         </Text>
       </ScrollView>

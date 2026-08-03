@@ -14,7 +14,8 @@ import {
 } from './src/data/migrate';
 import { checkMidnightRollover } from './src/data/rollover';
 import { initTriggers } from './src/data/notifications';
-import { getAllDecks } from './src/data/storage';
+import { getAllDecks, setOnDataChanged } from './src/data/storage';
+import { getSyncCode, pullNow, schedulePush } from './src/data/sync';
 import { determineInitialAction } from './src/data/initialRoute';
 import { color } from './src/design/tokens';
 
@@ -63,7 +64,14 @@ export default function App() {
     // see the user's existing cards/decks under the new keys.
     migrateLegacyStorage();
 
-    seedIfNeeded()
+    // Auto-push to cloud sync after every data write (debounced; no-op
+    // until the user sets a sync code in Settings).
+    setOnDataChanged(schedulePush);
+
+    // Pull cloud data before seeding/routing so a fresh device that enters
+    // an existing sync code comes up with the synced deck, not the tutorial.
+    (getSyncCode() ? pullNow().catch(() => undefined) : Promise.resolve())
+      .then(() => seedIfNeeded())
       .then(() => backfillTemplateTriggers())
       .then(() => checkMidnightRollover())
       .then(() => getAllDecks())
