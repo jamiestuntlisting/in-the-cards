@@ -78,6 +78,28 @@ async function getJSON<T>(key: string): Promise<T | null> {
 
 async function setJSON<T>(key: string, value: T): Promise<void> {
   await setItem(key, JSON.stringify(value));
+  if (DATA_KEYS.has(key)) {
+    onDataChanged?.();
+  }
+}
+
+// ─── Data-change notification — lets the sync layer auto-push after writes
+// without a circular import (sync.ts imports storage.ts, never the reverse).
+const DATA_KEYS: Set<string> = new Set([
+  KEYS.CARDS,
+  KEYS.DECKS,
+  KEYS.DAILY_RUNS,
+  KEYS.COMPLETION_LOGS,
+  KEYS.CARD_RESPONSES,
+  KEYS.GOALS,
+  KEYS.SETTINGS,
+]);
+
+let onDataChanged: (() => void) | null = null;
+
+/** Register a callback fired after any user-data write (debounce inside). */
+export function setOnDataChanged(cb: (() => void) | null): void {
+  onDataChanged = cb;
 }
 
 // ─── Cards ───
@@ -455,6 +477,8 @@ export interface DataBundle {
   logs: CompletionLog[];
   goals: Goal[];
   settings: Settings;
+  /** Prompt answers — absent in bundles exported before the questions feature. */
+  responses?: CardResponse[];
 }
 
 /**
@@ -462,14 +486,16 @@ export interface DataBundle {
  * Import box to move your cards across.
  */
 export async function exportAllData(): Promise<string> {
-  const [cards, decks, runs, logs, goals, settings] = await Promise.all([
-    getAllCards(),
-    getAllDecks(),
-    getAllDailyRuns(),
-    getAllLogs(),
-    getAllGoals(),
-    getSettings(),
-  ]);
+  const [cards, decks, runs, logs, goals, settings, responses] =
+    await Promise.all([
+      getAllCards(),
+      getAllDecks(),
+      getAllDailyRuns(),
+      getAllLogs(),
+      getAllGoals(),
+      getSettings(),
+      getAllResponses(),
+    ]);
   const bundle: DataBundle = {
     version: 1,
     exportedAt: Date.now(),
@@ -479,6 +505,7 @@ export async function exportAllData(): Promise<string> {
     logs,
     goals,
     settings,
+    responses,
   };
   return JSON.stringify(bundle, null, 2);
 }
@@ -508,6 +535,7 @@ export async function importAllData(
   const runs = Array.isArray(parsed.runs) ? parsed.runs : [];
   const logs = Array.isArray(parsed.logs) ? parsed.logs : [];
   const goals = Array.isArray(parsed.goals) ? parsed.goals : [];
+  const responses = Array.isArray(parsed.responses) ? parsed.responses : [];
   const settings = parsed.settings;
 
   if (mode === 'replace') {
@@ -516,6 +544,7 @@ export async function importAllData(
     await setJSON(KEYS.DAILY_RUNS, runs);
     await setJSON(KEYS.COMPLETION_LOGS, logs);
     await setJSON(KEYS.GOALS, goals);
+    await setJSON(KEYS.CARD_RESPONSES, responses);
     if (settings) await setJSON(KEYS.SETTINGS, settings);
   } else {
     // Merge: existing ids win
@@ -533,12 +562,14 @@ export async function importAllData(
       existingRuns,
       existingLogs,
       existingGoals,
+      existingResponses,
     ] = await Promise.all([
       getAllCards(),
       getAllDecks(),
       getAllDailyRuns(),
       getAllLogs(),
       getAllGoals(),
+      getAllResponses(),
     ]);
 
     await setJSON(KEYS.CARDS, mergeById(existingCards, cards));
@@ -552,6 +583,10 @@ export async function importAllData(
     ]);
     await setJSON(KEYS.COMPLETION_LOGS, mergeById(existingLogs, logs));
     await setJSON(KEYS.GOALS, mergeById(existingGoals, goals));
+    await setJSON(
+      KEYS.CARD_RESPONSES,
+      mergeById(existingResponses, responses)
+    );
     // Settings: incoming wins if present
     if (settings) await setJSON(KEYS.SETTINGS, settings);
   }
