@@ -1,0 +1,22 @@
+{
+  // Cloudflare Workers config — hosts the static Expo web build and the
+  // /api/sync endpoint (see worker/index.js).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "in-the-cards",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    // Expo web export output. Regenerate with `npm run build:web` before deploy.
+    "directory": "./dist",
+    "binding": "ASSETS",
+    // Client-side routing: unknown paths fall back to index.html.
+    "not_found_handling": "single-page-application"
+  },
+  "kv_namespaces": [
+    {
+      // Sync bundles keyed by SHA-256 of the user's sync code.
+      "binding": "SYNC_KV",
+      "id": "dda755ed8b5c43e1bd255fb8e11138f4"
+    }
+  ]
+}
