@@ -139,30 +139,89 @@ export function schedulePush(): void {
   }, PUSH_DEBOUNCE_MS);
 }
 
+// ─── Automatic identity + recovery link ───
+//
+// Backup requires zero setup: on first launch the app generates a random
+// identity and starts pushing. The identity travels in a "recovery link"
+// (…/#recover=<id>) — opening the app through that link on any device (or
+// after a storage wipe) adopts the identity and pulls everything back.
+// Add the recovery link to the home screen and the daily-use icon IS the key.
+
+function generateSyncId(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Extract the identity from a #recover= fragment. Null if none present. */
+function codeFromHash(hash: string): string | null {
+  const m = /[#&?]recover=([^&\s]+)/.exec(hash ?? '');
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 /**
- * Enable sync with a code: pull whatever the server has first (so a second
- * device inherits existing data instead of clobbering it), then push the
- * merged state back up.
+ * Parse whatever the user pastes into the restore box — a full recovery
+ * link or a bare code. Returns the code, or null if unusable.
  */
-export async function enableSync(
-  code: string
-): Promise<{ ok: boolean; error?: string }> {
-  if (code.trim().length < 6) {
-    return { ok: false, error: 'Sync code must be at least 6 characters.' };
+export function parseRecoveryInput(input: string): string | null {
+  const t = input.trim();
+  if (!t) return null;
+  const fromLink = codeFromHash(t);
+  if (fromLink) return fromLink;
+  return t.length >= 6 ? t : null;
+}
+
+/** The shareable recovery link for this device's identity. */
+export function getRecoveryLink(): string | null {
+  const code = getSyncCode();
+  if (!code || !isWeb()) return null;
+  return `${window.location.origin}/#recover=${encodeURIComponent(code)}`;
+}
+
+/**
+ * Boot-time identity setup. Order matters:
+ * 1. A #recover= fragment in the launch URL adopts that identity — this is
+ *    how home-screen bookmarks and shared links restore a device.
+ * 2. Otherwise, if no identity exists yet, generate one so backup is on
+ *    from the very first session.
+ */
+export function initSyncIdentity(): void {
+  if (!isWeb()) return;
+  try {
+    const fromUrl = codeFromHash(window.location.hash);
+    if (fromUrl && fromUrl.length >= 6 && fromUrl !== getSyncCode()) {
+      setSyncCode(fromUrl);
+    }
+    if (!getSyncCode()) {
+      setSyncCode(generateSyncId());
+      // Brand-new identity: push soon so the first backup exists right after
+      // seeding finishes.
+      schedulePush();
+    }
+  } catch {
+    // Never let identity setup break app boot.
   }
+}
+
+/**
+ * Adopt an identity pasted by the user (recovery link or bare code):
+ * pull that identity's data first (merge), then push the combined state.
+ */
+export async function adoptRecovery(
+  input: string
+): Promise<{ ok: boolean; error?: string }> {
+  const code = parseRecoveryInput(input);
+  if (!code) {
+    return { ok: false, error: 'That does not look like a recovery link.' };
+  }
+  const previous = getSyncCode();
   setSyncCode(code);
   const pull = await pullNow();
   if (!pull.ok) {
-    setSyncCode(null);
+    setSyncCode(previous);
     return { ok: false, error: pull.error };
   }
   return pushNow();
-}
-
-export function disableSync(): void {
-  if (pushTimer) {
-    clearTimeout(pushTimer);
-    pushTimer = null;
-  }
-  setSyncCode(null);
 }

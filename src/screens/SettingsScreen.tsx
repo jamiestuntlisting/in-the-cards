@@ -25,10 +25,9 @@ import {
   type DataCounts,
 } from '../data/storage';
 import {
-  getSyncCode,
   getSyncStatus,
-  enableSync,
-  disableSync,
+  getRecoveryLink,
+  adoptRecovery,
   pushNow,
   pullNow,
 } from '../data/sync';
@@ -55,24 +54,20 @@ export default function SettingsScreen({ navigation }: Props) {
   const [importText, setImportText] = useState('');
   const [showRaw, setShowRaw] = useState(false);
 
-  // Cloud sync state
-  const [syncEnabled, setSyncEnabled] = useState(!!getSyncCode());
-  const [syncCodeInput, setSyncCodeInput] = useState('');
+  // Cloud backup state — backup is automatic; the UI surfaces the recovery
+  // link and offers manual back-up-now / restore-from-link.
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [recoverInput, setRecoverInput] = useState('');
+  const recoveryLink = getRecoveryLink();
 
-  const handleEnableSync = async () => {
-    setSyncBusy(true);
-    setSyncMessage(null);
-    const result = await enableSync(syncCodeInput);
-    setSyncBusy(false);
-    if (result.ok) {
-      setSyncEnabled(true);
-      setSyncCodeInput('');
-      setSyncMessage('Sync is on. Your data is now backed up automatically.');
-      await refreshCounts();
-    } else {
-      setSyncMessage(result.error ?? 'Could not enable sync.');
+  const handleCopyLink = async () => {
+    if (!recoveryLink) return;
+    try {
+      await navigator.clipboard.writeText(recoveryLink);
+      setSyncMessage('Recovery link copied. Save it somewhere safe.');
+    } catch {
+      setSyncMessage('Could not copy — select the link text and copy it.');
     }
   };
 
@@ -83,22 +78,25 @@ export default function SettingsScreen({ navigation }: Props) {
     const push = await pushNow();
     setSyncBusy(false);
     if (pull.ok && push.ok) {
-      setSyncMessage('Synced.');
+      setSyncMessage('Backed up.');
       await refreshCounts();
     } else {
-      setSyncMessage(pull.error ?? push.error ?? 'Sync failed.');
+      setSyncMessage(pull.error ?? push.error ?? 'Backup failed.');
     }
   };
 
-  const handleDisableSync = () => {
-    const confirmed = window.confirm(
-      'Turn off cloud sync on this device? Your data stays on the server ' +
-        'and on this device; it just stops syncing.'
-    );
-    if (!confirmed) return;
-    disableSync();
-    setSyncEnabled(false);
-    setSyncMessage('Sync is off.');
+  const handleRestoreFromLink = async () => {
+    setSyncBusy(true);
+    setSyncMessage(null);
+    const result = await adoptRecovery(recoverInput);
+    setSyncBusy(false);
+    if (result.ok) {
+      setRecoverInput('');
+      setSyncMessage('Restored from recovery link.');
+      await refreshCounts();
+    } else {
+      setSyncMessage(result.error ?? 'Restore failed.');
+    }
   };
 
   useFocusEffect(
@@ -236,76 +234,94 @@ export default function SettingsScreen({ navigation }: Props) {
           })}
         </View>
 
-        {/* Cloud Sync — automatic server backup keyed by a secret sync code */}
-        <Text style={[styles.label, { marginTop: space[6] }]}>Cloud Sync</Text>
+        {/* Cloud Backup — automatic; the recovery link is the key */}
+        <Text style={[styles.label, { marginTop: space[6] }]}>
+          Cloud Backup
+        </Text>
         <Text style={styles.hint}>
-          {syncEnabled
-            ? 'Every change is backed up to the cloud automatically. Enter the same sync code on another device to load your cards there.'
-            : 'Invent a secret sync code (like a passphrase, 6+ characters). Your cards back up to the cloud automatically and follow you to any device where you enter the same code.'}
+          Your cards back up to the cloud automatically after every change.
+          The recovery link below is your key: save it (best: add it to your
+          home screen) — opening the app through it brings everything back on
+          any device.
         </Text>
 
-        {!syncEnabled ? (
-          <>
-            <TextInput
-              style={styles.input}
-              value={syncCodeInput}
-              onChangeText={setSyncCodeInput}
-              placeholder="Your secret sync code"
-              placeholderTextColor={color.fg4}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Pressable
-              style={[
-                styles.dataBtn,
-                styles.dataBtnPrimary,
-                (syncBusy || syncCodeInput.trim().length < 6) &&
-                  styles.dataBtnDisabled,
-              ]}
-              onPress={handleEnableSync}
-              disabled={syncBusy || syncCodeInput.trim().length < 6}
-            >
-              <Text style={styles.dataBtnPrimaryText}>
-                {syncBusy ? 'Connecting…' : 'Turn on sync'}
+        {(() => {
+          const s = getSyncStatus();
+          const last = s.lastPushAt ?? s.lastPullAt;
+          return (
+            <View style={styles.dataCard}>
+              <Text style={styles.dataCountsText}>
+                Backup is ON
+                {last
+                  ? ` • last backed up ${new Date(last).toLocaleString()}`
+                  : ' • first backup pending'}
               </Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            {(() => {
-              const s = getSyncStatus();
-              const last = s.lastPushAt ?? s.lastPullAt;
-              return (
-                <View style={styles.dataCard}>
-                  <Text style={styles.dataCountsText}>
-                    Sync is ON
-                    {last
-                      ? ` • last synced ${new Date(
-                          last
-                        ).toLocaleString()}`
-                      : ''}
-                  </Text>
-                </View>
-              );
-            })()}
-            <View style={styles.dataButtons}>
-              <Pressable
-                style={[styles.dataBtn, syncBusy && styles.dataBtnDisabled]}
-                onPress={handleSyncNow}
-                disabled={syncBusy}
-              >
-                <Text style={styles.dataBtnText}>
-                  {syncBusy ? 'Syncing…' : 'Sync now'}
+              {s.lastError ? (
+                <Text style={[styles.dataCountsText, { color: suit.heart }]}>
+                  Last attempt failed: {s.lastError}
                 </Text>
-              </Pressable>
-              <Pressable style={styles.dataBtn} onPress={handleDisableSync}>
-                <Text style={[styles.dataBtnText, { color: suit.heart }]}>
-                  Turn off
-                </Text>
-              </Pressable>
+              ) : null}
             </View>
-          </>
+          );
+        })()}
+
+        {recoveryLink && (
+          <View style={styles.exportBox}>
+            <Text style={styles.exportHint}>Your recovery link:</Text>
+            <TextInput
+              value={recoveryLink}
+              editable={false}
+              selectTextOnFocus
+              multiline
+              style={styles.exportTextArea}
+            />
+          </View>
         )}
+
+        <View style={styles.dataButtons}>
+          <Pressable style={styles.dataBtn} onPress={handleCopyLink}>
+            <Text style={styles.dataBtnText}>Copy recovery link</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.dataBtn, syncBusy && styles.dataBtnDisabled]}
+            onPress={handleSyncNow}
+            disabled={syncBusy}
+          >
+            <Text style={styles.dataBtnText}>
+              {syncBusy ? 'Backing up…' : 'Back up now'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={[styles.label, { marginTop: space[4] }]}>
+          Restore from a recovery link
+        </Text>
+        <Text style={styles.hint}>
+          Paste a recovery link (or its code) from another device to load
+          that backup here.
+        </Text>
+        <TextInput
+          style={styles.input}
+          value={recoverInput}
+          onChangeText={setRecoverInput}
+          placeholder="https://…/#recover=…"
+          placeholderTextColor={color.fg4}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Pressable
+          style={[
+            styles.dataBtn,
+            styles.dataBtnPrimary,
+            (syncBusy || !recoverInput.trim()) && styles.dataBtnDisabled,
+          ]}
+          onPress={handleRestoreFromLink}
+          disabled={syncBusy || !recoverInput.trim()}
+        >
+          <Text style={styles.dataBtnPrimaryText}>
+            {syncBusy ? 'Restoring…' : 'Restore'}
+          </Text>
+        </Pressable>
         {syncMessage && <Text style={styles.hint}>{syncMessage}</Text>}
 
         {/* Data — backup / restore / transfer across devices */}
@@ -399,7 +415,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
         <Text style={[styles.label, { marginTop: space[6] }]}>About</Text>
         <Text style={styles.aboutText}>
-          In the Cards v0.5.0 (cloud-sync){'\n'}
+          In the Cards v0.6.0 (auto-backup){'\n'}
           A card-based daily routine app.
         </Text>
       </ScrollView>
