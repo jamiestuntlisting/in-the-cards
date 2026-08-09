@@ -12,11 +12,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { saveDeck, generateId } from '../data/storage';
 import {
-  DECK_TEMPLATES,
-  createDeckFromTemplate,
-  type DeckTemplate,
-} from '../data/seedData';
-import {
   color,
   font,
   fontSize,
@@ -26,7 +21,7 @@ import {
   space,
   suit,
 } from '../design/tokens';
-import { FixedOrderIcon, RandomOrderIcon } from '../design/icons';
+
 import ScreenContainer from '../components/ScreenContainer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NewDeck'>;
@@ -48,11 +43,6 @@ export default function NewDeckScreen({ navigation }: Props) {
     navigation.replace('DeckDetail', { deckId: deck.id });
   };
 
-  const createFromTemplate = async (template: DeckTemplate) => {
-    const deck = await createDeckFromTemplate(template);
-    navigation.replace('DeckDetail', { deckId: deck.id });
-  };
-
   return (
     <ScreenContainer>
       <View style={styles.header}>
@@ -68,36 +58,7 @@ export default function NewDeckScreen({ navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.sectionTitle}>Start from template</Text>
-        {DECK_TEMPLATES.map((tmpl) => {
-          const OrderIcon =
-            tmpl.orderMode === 'random' ? RandomOrderIcon : FixedOrderIcon;
-          return (
-            <Pressable
-              key={tmpl.name}
-              style={styles.templateCard}
-              onPress={() => createFromTemplate(tmpl)}
-            >
-              <Text style={styles.templateName}>{tmpl.name}</Text>
-              <View style={styles.templateMetaRow}>
-                <Text style={styles.templateMeta}>
-                  {tmpl.cards.length} cards
-                </Text>
-                <OrderIcon size={13} color={color.fg4} />
-                <Text style={styles.templateMeta}>
-                  {tmpl.orderMode === 'random' ? 'Random' : 'Fixed'}
-                </Text>
-              </View>
-              <Text style={styles.templatePreview} numberOfLines={2}>
-                {tmpl.cards.map((c) => c.title).join('  \u2022  ')}
-              </Text>
-            </Pressable>
-          );
-        })}
-
-        <Text style={[styles.sectionTitle, { marginTop: space[7] }]}>
-          Or create blank
-        </Text>
+        <Text style={styles.sectionTitle}>Name your deck</Text>
         <View style={styles.blankForm}>
           <TextInput
             style={styles.nameInput}
@@ -168,40 +129,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: letterSpacing.label,
     marginBottom: space[3],
-  },
-  templateCard: {
-    backgroundColor: color.bgRaised,
-    borderRadius: radius.l,
-    padding: space[4],
-    marginBottom: space[2] + 2,
-    borderWidth: 1,
-    borderColor: color.cardStroke,
-  },
-  templateName: {
-    fontFamily: font.display,
-    fontSize: fontSize.displayS,
-    fontWeight: fontWeight.regular,
-    color: color.fg1,
-    letterSpacing: letterSpacing.display,
-    textTransform: 'uppercase',
-  },
-  templateMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[2],
-    marginTop: space[1] + 2,
-    marginBottom: space[2],
-  },
-  templateMeta: {
-    fontFamily: font.text,
-    fontSize: fontSize.bodyS,
-    color: color.fg3,
-  },
-  templatePreview: {
-    fontFamily: font.text,
-    fontSize: fontSize.bodyS,
-    color: color.fg4,
-    lineHeight: fontSize.bodyS * 1.5,
   },
   blankForm: {
     backgroundColor: color.bgRaised,

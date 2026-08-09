@@ -4,7 +4,6 @@ import {
   getAllDailyRuns,
   todayString,
 } from './storage';
-import { TEMPLATE_DEFAULT_TRIGGERS } from './seedData';
 import type { Deck } from './types';
 
 type InitialAction =
@@ -22,16 +21,9 @@ function timeToMinutes(hhmm: string | undefined): number {
   return h * 60 + mm;
 }
 
-/**
- * Effective trigger time for a deck — explicit `deck.trigger.time` wins,
- * but if a deck shares its name with a known template (Morning / Afternoon /
- * Evening) we fall back to that template's default. This catches users who
- * created template decks before the trigger field existed.
- */
+/** Effective trigger time for a deck — explicit `deck.trigger.time` only. */
 function effectiveTriggerMinutes(deck: Deck): number {
-  if (deck.trigger?.time) return timeToMinutes(deck.trigger.time);
-  const fallback = TEMPLATE_DEFAULT_TRIGGERS[deck.name];
-  return fallback ? timeToMinutes(fallback) : -1;
+  return deck.trigger?.time ? timeToMinutes(deck.trigger.time) : -1;
 }
 
 /**
