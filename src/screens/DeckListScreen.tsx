@@ -18,10 +18,6 @@ import {
   getDailyRun,
   todayString,
 } from '../data/storage';
-import {
-  DECK_TEMPLATES,
-  createDeckFromTemplate,
-} from '../data/seedData';
 import ScreenContainer from '../components/ScreenContainer';
 import {
   color,
@@ -92,19 +88,6 @@ export default function DeckListScreen({ navigation }: Props) {
     navigation.navigate('Play', { deckId: deck.id, date: today });
   };
 
-  const addTemplate = async (tmplName: string) => {
-    const tmpl = DECK_TEMPLATES.find((t) => t.name === tmplName);
-    if (!tmpl) return;
-    await createDeckFromTemplate(tmpl);
-    const allDecks = await getAllDecks();
-    setDecks(allDecks);
-  };
-
-  const existingNames = new Set(decks.map((d) => d.name));
-  const availableTemplates = DECK_TEMPLATES.filter(
-    (t) => !existingNames.has(t.name)
-  );
-
   if (loading) {
     return (
       <View style={styles.center}>
@@ -166,48 +149,9 @@ export default function DeckListScreen({ navigation }: Props) {
             </Pressable>
           );
         }}
-        ListFooterComponent={
-          <>
-            {availableTemplates.length > 0 && (
-              <View style={styles.templateSection}>
-                <Text style={styles.templateHeading}>Add a template</Text>
-                {availableTemplates.map((tmpl) => {
-                  const OrderIcon =
-                    tmpl.orderMode === 'random'
-                      ? RandomOrderIcon
-                      : FixedOrderIcon;
-                  return (
-                    <Pressable
-                      key={tmpl.name}
-                      style={styles.templateRow}
-                      onPress={() => addTemplate(tmpl.name)}
-                    >
-                      <View style={styles.rowLeft}>
-                        <Text style={styles.templateName}>{tmpl.name}</Text>
-                        <View style={styles.metaRow}>
-                          <Text style={styles.templateMeta}>
-                            {tmpl.cards.length} cards
-                          </Text>
-                          <OrderIcon size={13} color={color.fg4} />
-                          <Text style={styles.templateMeta}>
-                            {tmpl.orderMode === 'random' ? 'Random' : 'Fixed'}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.addBtnRow}>
-                        <PlusIcon size={14} color={color.linkOnFelt} strokeWidth={2.2} />
-                        <Text style={styles.addBtn}>Add</Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        }
         ListEmptyComponent={
           <Text style={styles.empty}>
-            No decks yet. Add a template or tap + to create one.
+            No decks yet. Tap + to create one.
           </Text>
         }
       />
@@ -310,57 +254,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.body,
     marginTop: space[8],
     fontFamily: font.text,
-  },
-  // Template section
-  templateSection: {
-    marginTop: space[5],
-    paddingTop: space[4],
-    borderTopWidth: 1,
-    borderTopColor: color.hairlineOnFelt,
-  },
-  templateHeading: {
-    fontFamily: font.text,
-    fontSize: fontSize.label,
-    fontWeight: fontWeight.semibold,
-    color: color.fgOnFelt2,
-    textTransform: 'uppercase',
-    letterSpacing: letterSpacing.label,
-    marginBottom: space[3],
-  },
-  templateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(250, 246, 239, 0.08)',
-    borderRadius: radius.l,
-    padding: space[3] + 2,
-    marginBottom: space[2],
-    borderWidth: 1,
-    borderColor: color.hairlineOnFelt,
-    borderStyle: 'dashed',
-  },
-  templateName: {
-    fontFamily: font.display,
-    fontSize: fontSize.bodyL,
-    fontWeight: fontWeight.regular,
-    color: color.fgOnFelt1,
-    letterSpacing: letterSpacing.display,
-    textTransform: 'uppercase',
-  },
-  templateMeta: {
-    fontFamily: font.text,
-    fontSize: fontSize.bodyS,
-    color: color.fgOnFelt3,
-  },
-  addBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  addBtn: {
-    fontFamily: font.text,
-    fontSize: fontSize.bodyS,
-    fontWeight: fontWeight.semibold,
-    color: color.linkOnFelt,
   },
   fab: {
     position: 'absolute',

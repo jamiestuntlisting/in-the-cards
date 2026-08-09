@@ -5,7 +5,6 @@ import {
   hasBeenSeeded,
   markSeeded,
   hasUserDeletedTutorial,
-  generateId,
 } from './storage';
 
 // ─── Tutorial Deck ───
@@ -76,6 +75,41 @@ const TUTORIAL_CARDS: Omit<Card, 'createdAt'>[] = [
     ],
   },
   {
+    id: 'tut-9',
+    title: 'Cards can ask questions',
+    content: [
+      {
+        type: 'text',
+        value:
+          'Pick a rating or jot a note below \u2014 your answer is saved when you complete the card. Edit the card later to see the history.',
+      },
+    ],
+    prompt: { label: 'How are you feeling?', scale: true, text: true },
+  },
+  {
+    id: 'tut-10',
+    title: 'Some cards are one-and-done',
+    content: [
+      {
+        type: 'text',
+        value:
+          'This card has a run limit of 1. Complete it and it retires to the Completed section of the deck \u2014 handy for to-dos.',
+      },
+    ],
+    completionLimit: 1,
+  },
+  {
+    id: 'tut-11',
+    title: 'Arrange your deck',
+    content: [
+      {
+        type: 'text',
+        value:
+          'In the deck view, long-press a card and drag to reorder. Rotate your phone sideways for a full-card view.',
+      },
+    ],
+  },
+  {
     id: 'tut-7',
     title: 'Make your own deck',
     content: [{ type: 'text', value: 'Tap here to create a new deck.' }],
@@ -88,7 +122,7 @@ const TUTORIAL_CARDS: Omit<Card, 'createdAt'>[] = [
       {
         type: 'text',
         value:
-          'Swipe right to finish. Your Morning, Afternoon, and Evening templates are waiting.',
+          'Swipe right to finish, then create your own deck. Everything backs up automatically \u2014 your recovery link is in Settings.',
       },
     ],
   },
@@ -103,100 +137,6 @@ const TUTORIAL_DECK_DEF: Omit<Deck, 'createdAt'> = {
     positionInDeck: i,
   })),
 };
-
-// ─── Template Decks ───
-
-export interface DeckTemplate {
-  name: string;
-  orderMode: 'fixed' | 'random';
-  /** When this deck wants the user's attention (HH:MM, 24-hour). */
-  trigger?: { time: string };
-  cards: { title: string; timer?: number }[];
-}
-
-export const DECK_TEMPLATES: DeckTemplate[] = [
-  {
-    name: 'Morning',
-    orderMode: 'fixed',
-    trigger: { time: '07:00' },
-    cards: [
-      { title: 'Drink a bottle of water' },
-      { title: 'Drink tea' },
-      { title: 'Do a handstand' },
-      { title: 'Core exercises', timer: 60 },
-      { title: 'Jump rope', timer: 30 },
-      { title: 'Take a shower' },
-      { title: 'Eat oatmeal' },
-    ],
-  },
-  {
-    name: 'Afternoon',
-    orderMode: 'random',
-    trigger: { time: '13:00' },
-    cards: [
-      { title: 'Stand up and stretch', timer: 60 },
-      { title: 'Drink a glass of water' },
-      { title: 'Step outside for fresh air', timer: 120 },
-      { title: 'Eat a piece of fruit' },
-      { title: "Write one thing you're grateful for" },
-      { title: 'Look away from screen at distance', timer: 30 },
-    ],
-  },
-  {
-    name: 'Evening',
-    orderMode: 'fixed',
-    trigger: { time: '20:00' },
-    cards: [
-      { title: 'Put phone on charger across the room' },
-      { title: 'Journal', timer: 300 },
-      { title: 'Stretch', timer: 180 },
-      { title: 'Read a book', timer: 600 },
-      { title: "Lights out \u2014 set tomorrow's intention" },
-    ],
-  },
-];
-
-export async function createDeckFromTemplate(
-  template: DeckTemplate
-): Promise<Deck> {
-  const now = Date.now();
-  const cards: Card[] = template.cards.map((tc, i) => ({
-    id: generateId(),
-    title: tc.title,
-    content: [],
-    timer: tc.timer ? { durationSeconds: tc.timer } : undefined,
-    createdAt: now,
-  }));
-
-  // Save all cards
-  for (const card of cards) {
-    await saveCard(card);
-  }
-
-  const deck: Deck = {
-    id: generateId(),
-    name: template.name,
-    orderMode: template.orderMode,
-    trigger: template.trigger,
-    cardRefs: cards.map((c, i) => ({ cardId: c.id, positionInDeck: i })),
-    createdAt: now,
-  };
-  await saveDeck(deck);
-  return deck;
-}
-
-/**
- * Default trigger times by template name. Used when migrating older decks
- * that were created before triggers were added — if a deck's name matches
- * a known template, we backfill the trigger so time-of-day routing works.
- */
-export const TEMPLATE_DEFAULT_TRIGGERS: Record<string, string> =
-  Object.fromEntries(
-    DECK_TEMPLATES.filter((t) => t.trigger).map((t) => [
-      t.name,
-      t.trigger!.time,
-    ])
-  );
 
 // ─── Tutorial card ID prefix — used to filter out of library pickers ───
 export const TUTORIAL_CARD_IDS = new Set(TUTORIAL_CARDS.map((c) => c.id));

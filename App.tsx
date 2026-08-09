@@ -8,10 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import type { RootStackParamList } from './src/navigation';
 import { seedIfNeeded } from './src/data/seedData';
-import {
-  backfillTemplateTriggers,
-  migrateLegacyStorage,
-} from './src/data/migrate';
+import { migrateLegacyStorage } from './src/data/migrate';
 import { checkMidnightRollover } from './src/data/rollover';
 import { initTriggers } from './src/data/notifications';
 import { getAllDecks, setOnDataChanged } from './src/data/storage';
@@ -82,7 +79,6 @@ export default function App() {
     // the tutorial.
     (getSyncCode() ? pullNow().catch(() => undefined) : Promise.resolve())
       .then(() => seedIfNeeded())
-      .then(() => backfillTemplateTriggers())
       .then(() => checkMidnightRollover())
       .then(() => getAllDecks())
       .then((decks) => initTriggers(decks))
