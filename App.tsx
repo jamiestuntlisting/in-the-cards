@@ -69,15 +69,19 @@ export default function App() {
     // Auto-push to cloud backup after every data write (debounced).
     setOnDataChanged(schedulePush);
 
-    // Backup identity: adopt a #recover= link if the app was launched
-    // through one, otherwise auto-generate an identity on first run so
-    // backup is on with zero setup.
-    initSyncIdentity();
+    // Backup identity: every device gets its own, so every person sees only
+    // their own cards. A #recover= link is adopted only on a device that has
+    // no identity yet (first run / wiped device); otherwise it is parked for
+    // an explicit restore in Settings rather than fusing two people's decks.
+    const identity = initSyncIdentity();
 
-    // Pull cloud data before seeding/routing so a wiped or new device
-    // opened via a recovery link comes up with the backed-up deck, not
-    // the tutorial.
-    (getSyncCode() ? pullNow().catch(() => undefined) : Promise.resolve())
+    // Pull cloud data before seeding/routing so a wiped or new device opened
+    // via its recovery link comes up with the backed-up deck, not the
+    // tutorial. A restore replaces local data; a device syncing its own
+    // backup merges, so its other devices' cards still come through.
+    (getSyncCode()
+      ? pullNow(identity.adopted ? 'replace' : 'merge').catch(() => undefined)
+      : Promise.resolve())
       .then(() => seedIfNeeded())
       .then(() => checkMidnightRollover())
       .then(() => getAllDecks())

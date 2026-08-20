@@ -30,6 +30,9 @@ import {
   adoptRecovery,
   pushNow,
   pullNow,
+  getOfferedRecovery,
+  clearOfferedRecovery,
+  startFreshIdentity,
 } from '../data/sync';
 import TimeInput from '../components/TimeInput';
 import {
@@ -59,7 +62,11 @@ export default function SettingsScreen({ navigation }: Props) {
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [recoverInput, setRecoverInput] = useState('');
-  const recoveryLink = getRecoveryLink();
+  const [recoveryLink, setRecoveryLink] = useState(getRecoveryLink());
+  const [showLink, setShowLink] = useState(false);
+  // A recovery link opened on this device that we did NOT apply, because the
+  // device already has its own cards. Restoring it is the user's call.
+  const [offered, setOffered] = useState<string | null>(getOfferedRecovery());
 
   const handleCopyLink = async () => {
     if (!recoveryLink) return;
@@ -85,18 +92,58 @@ export default function SettingsScreen({ navigation }: Props) {
     }
   };
 
-  const handleRestoreFromLink = async () => {
+  // Restoring REPLACES this device's cards with the backup — that is what
+  // keeps two people's decks from fusing — so it always asks first.
+  const runRestore = async (input: string) => {
+    const confirmed = window.confirm(
+      'Restore this backup? The cards, decks and history on this device will ' +
+        'be replaced by the ones in that backup.'
+    );
+    if (!confirmed) return;
     setSyncBusy(true);
     setSyncMessage(null);
-    const result = await adoptRecovery(recoverInput);
+    const result = await adoptRecovery(input);
     setSyncBusy(false);
     if (result.ok) {
       setRecoverInput('');
-      setSyncMessage('Restored from recovery link.');
+      setOffered(null);
+      setRecoveryLink(getRecoveryLink());
+      setSyncMessage('Restored. This device now shows that backup\u2019s cards.');
       await refreshCounts();
     } else {
       setSyncMessage(result.error ?? 'Restore failed.');
     }
+  };
+
+  const handleRestoreFromLink = () => runRestore(recoverInput);
+
+  const handleDismissOffer = () => {
+    clearOfferedRecovery();
+    setOffered(null);
+  };
+
+  // Escape hatch for a device that ended up sharing a backup with someone
+  // else: mint a new identity and wipe local data, so it starts over with a
+  // set of cards that is only its own.
+  const handleStartFresh = async () => {
+    const confirmed = window.confirm(
+      'Start fresh on this device? It gets a brand-new private backup, and ' +
+        'every card, deck and log currently on it is deleted. Save your ' +
+        'current recovery link first if you might want this data back.'
+    );
+    if (!confirmed) return;
+    setSyncBusy(true);
+    setSyncMessage(null);
+    await resetAllData();
+    startFreshIdentity();
+    setSyncBusy(false);
+    setOffered(null);
+    setRecoveryLink(getRecoveryLink());
+    await refreshCounts();
+    window.alert(
+      'This device now has its own private backup. Reload the app to start ' +
+        'from the tutorial deck.'
+    );
   };
 
   useFocusEffect(
@@ -240,9 +287,14 @@ export default function SettingsScreen({ navigation }: Props) {
         </Text>
         <Text style={styles.hint}>
           Your cards back up to the cloud automatically after every change.
-          The recovery link below is your key: save it (best: add it to your
-          home screen) — opening the app through it brings everything back on
-          any device.
+          This backup is private to this device — every person who opens the
+          app gets their own cards.
+        </Text>
+        <Text style={styles.hint}>
+          The recovery link below is the key to it. Treat it like a password:
+          save it for yourself (best: add it to your home screen) and don’t
+          send it to anyone — whoever opens the app through it can load your
+          deck onto their device.
         </Text>
 
         {(() => {
@@ -265,9 +317,33 @@ export default function SettingsScreen({ navigation }: Props) {
           );
         })()}
 
-        {recoveryLink && (
+        {offered && (
+          <View style={styles.dataCard}>
+            <Text style={styles.dataCountsText}>
+              You opened this app through someone’s recovery link. This
+              device kept its own cards. Load that backup instead? It will
+              replace everything here.
+            </Text>
+            <View style={styles.dataButtons}>
+              <Pressable
+                style={[styles.dataBtn, syncBusy && styles.dataBtnDisabled]}
+                onPress={() => runRestore(offered)}
+                disabled={syncBusy}
+              >
+                <Text style={styles.dataBtnText}>Load that backup</Text>
+              </Pressable>
+              <Pressable style={styles.dataBtn} onPress={handleDismissOffer}>
+                <Text style={styles.dataBtnText}>Keep my cards</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {recoveryLink && showLink && (
           <View style={styles.exportBox}>
-            <Text style={styles.exportHint}>Your recovery link:</Text>
+            <Text style={styles.exportHint}>
+              Your recovery link (private — don’t share it):
+            </Text>
             <TextInput
               value={recoveryLink}
               editable={false}
@@ -279,6 +355,14 @@ export default function SettingsScreen({ navigation }: Props) {
         )}
 
         <View style={styles.dataButtons}>
+          <Pressable
+            style={styles.dataBtn}
+            onPress={() => setShowLink((v) => !v)}
+          >
+            <Text style={styles.dataBtnText}>
+              {showLink ? 'Hide recovery link' : 'Show recovery link'}
+            </Text>
+          </Pressable>
           <Pressable style={styles.dataBtn} onPress={handleCopyLink}>
             <Text style={styles.dataBtnText}>Copy recovery link</Text>
           </Pressable>
@@ -297,8 +381,9 @@ export default function SettingsScreen({ navigation }: Props) {
           Restore from a recovery link
         </Text>
         <Text style={styles.hint}>
-          Paste a recovery link (or its code) from another device to load
-          that backup here.
+          Paste a recovery link (or its code) from another one of your devices
+          to load that backup here. This replaces the cards on this device
+          rather than mixing the two sets together.
         </Text>
         <TextInput
           style={styles.input}
@@ -323,6 +408,22 @@ export default function SettingsScreen({ navigation }: Props) {
           </Text>
         </Pressable>
         {syncMessage && <Text style={styles.hint}>{syncMessage}</Text>}
+
+        <Text style={[styles.label, { marginTop: space[4] }]}>
+          Start fresh on this device
+        </Text>
+        <Text style={styles.hint}>
+          Sharing a backup with someone else, or seeing cards that aren’t
+          yours? This gives the device a brand-new private backup and clears
+          the cards on it, so you start over with a set that is only yours.
+        </Text>
+        <Pressable
+          style={[styles.dataBtn, syncBusy && styles.dataBtnDisabled]}
+          onPress={handleStartFresh}
+          disabled={syncBusy}
+        >
+          <Text style={styles.dataBtnText}>Start fresh</Text>
+        </Pressable>
 
         {/* Data — backup / restore / transfer across devices */}
         <Text style={[styles.label, { marginTop: space[6] }]}>Data</Text>
